@@ -56,9 +56,11 @@ export interface Task {
   lastActivityAt?: string;
   // ── Delegation ──
   accountableLeadId?: string;   // subadmin responsible for delivery
+  accountableLeadName?: string;
   delegatedAt?: string;         // ISO timestamp when delegated to employee
   // ── Stalled detection ──
   lastNoChangeAt?: string;      // last "No Change" event date
+  stalledDays?: number;
 }
 
 export interface AuditEntry {

@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
 import {
   useTaskAudit,
@@ -12,6 +14,7 @@ import {
   useMyTeam,
   useAllEmployees,
 } from '../../store/selectors';
+import { useBackendAuth } from '../../providers/BackendProviders';
 import { StatusBadge, PriorityBadge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -28,11 +31,19 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { state, dispatch } = useApp();
+  const { clerkEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const curName = useCurrentName();
   const curRoleLabel = useCurrentRoleLabel();
-  const task = state.tasks.find((t) => t.id === id);
-  const audit = useTaskAudit(id || '');
+  const localTask = state.tasks.find((t) => t.id === id);
+  const localAudit = useTaskAudit(id || '');
+  const isBackendMode = !state.isDemo && clerkEnabled;
+  const backendDetail = useQuery(
+    api.tasks.getDetail,
+    isBackendMode && id ? { taskId: id as never } : 'skip'
+  );
+  const task = isBackendMode ? backendDetail?.task : localTask;
+  const audit = isBackendMode ? backendDetail?.audit || [] : localAudit;
 
   const myTeam = useMyTeam();
   const allEmployees = useAllEmployees();
@@ -41,6 +52,14 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const [showReject, setShowReject] = useState(false);
   const [showDelegate, setShowDelegate] = useState(false);
   const [delegateToId, setDelegateToId] = useState('');
+
+  if (isBackendMode && backendDetail === undefined) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+        <Text className="text-gray-400">Loading task...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!task) {
     return (
@@ -55,24 +74,27 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
 
   const overdue = isOverdue(task.due, task.status);
   const canApprove =
+    !isBackendMode &&
     (state.role === 'admin' || state.role === 'subadmin') &&
     task.status === 'Pending Approval' &&
     !task.approved;
   const canVerify =
+    !isBackendMode &&
     (state.role === 'admin' || state.role === 'subadmin') &&
     task.status === 'Completed';
   const canReject = canVerify;
-  const hasStatusTransitions = getNextStatuses(task.status, state.role).length > 0;
+  const hasStatusTransitions = !isBackendMode && getNextStatuses(task.status, state.role).length > 0;
   // Show Update Status button unless dedicated buttons (approve/verify/reject) already cover it
   const canUpdate = hasStatusTransitions && !canApprove && !canVerify;
-  const showDelegateBtn = task && canDelegateTask(task, state.userId || '', state.role);
+  const showDelegateBtn = !isBackendMode && task && canDelegateTask(task, state.userId || '', state.role);
 
   // Get accountable lead name
-  const accountableLead = task?.accountableLeadId
-    ? task.accountableLeadId === 'admin'
-      ? state.onboarding.adminName
-      : allEmployees.find((e) => e.id === task.accountableLeadId)?.name
-    : null;
+  const accountableLead = task?.accountableLeadName
+    || (task?.accountableLeadId
+      ? task.accountableLeadId === 'admin'
+        ? state.onboarding.adminName
+        : allEmployees.find((e) => e.id === task.accountableLeadId)?.name
+      : null);
 
   // Delegate member options (subadmin's team members, excluding self)
   const delegateOptions: SelectOption[] = myTeam
@@ -224,6 +246,15 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
           )}
         </Card>
 
+        {isBackendMode && (
+          <Card className="mx-5 mt-4">
+            <Text className="text-sm font-semibold text-gray-900 mb-1">Read-only for now</Text>
+            <Text className="text-sm text-gray-500">
+              We&apos;ve moved task reads to Convex. Task updates, notes, review, and delegation are the next backend pass.
+            </Text>
+          </Card>
+        )}
+
         {/* Delegate button for subadmins */}
         {showDelegateBtn && (
           <View className="mx-5 mt-4 gap-2">
@@ -317,26 +348,28 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
         )}
 
         {/* Add note */}
-        <Card className="mx-5 mt-4">
-          <Text className="text-sm font-semibold text-gray-900 mb-2">Add a note</Text>
-          <View className="flex-row gap-2">
-            <TextInput
-              value={noteText}
-              onChangeText={setNoteText}
-              placeholder="Write a note..."
-              placeholderTextColor="#d1d5db"
-              className="flex-1 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-900"
-            />
-            <Pressable
-              onPress={addNote}
-              disabled={!noteText.trim()}
-              className={`px-4 rounded-xl items-center justify-center ${!noteText.trim() ? 'opacity-20' : ''}`}
-              style={{ backgroundColor: color }}
-            >
-              <Ionicons name="send" size={16} color="white" />
-            </Pressable>
-          </View>
-        </Card>
+        {!isBackendMode && (
+          <Card className="mx-5 mt-4">
+            <Text className="text-sm font-semibold text-gray-900 mb-2">Add a note</Text>
+            <View className="flex-row gap-2">
+              <TextInput
+                value={noteText}
+                onChangeText={setNoteText}
+                placeholder="Write a note..."
+                placeholderTextColor="#d1d5db"
+                className="flex-1 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-900"
+              />
+              <Pressable
+                onPress={addNote}
+                disabled={!noteText.trim()}
+                className={`px-4 rounded-xl items-center justify-center ${!noteText.trim() ? 'opacity-20' : ''}`}
+                style={{ backgroundColor: color }}
+              >
+                <Ionicons name="send" size={16} color="white" />
+              </Pressable>
+            </View>
+          </Card>
+        )}
 
         {/* Audit trail */}
         <View className="mx-5 mt-4">
