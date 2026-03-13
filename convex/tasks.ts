@@ -20,6 +20,62 @@ function canViewTask(task: Doc<"tasks">, membership: Doc<"memberships">) {
   return task.assignedToMembershipId === membership._id;
 }
 
+function getAllowedNextStatuses(
+  current: Doc<"tasks">["status"],
+  role: Doc<"memberships">["role"],
+): Doc<"tasks">["status"][] {
+  if (role === "employee") {
+    if (current === "Open") return ["In Progress"];
+    if (current === "In Progress") return ["Completed"];
+    return [];
+  }
+
+  if (role === "subadmin" || role === "owner_admin") {
+    if (current === "Open") return ["In Progress"];
+    if (current === "In Progress") return ["Completed"];
+    if (current === "Completed") return ["Verified"];
+    if (current === "Pending Approval") return ["Open"];
+    if (current === "Verified") return ["Open"];
+  }
+
+  return [];
+}
+
+async function getVisibleTask(
+  ctx: QueryCtx | MutationCtx,
+  taskId: Id<"tasks">,
+) {
+  const access = await requireActiveOrganizationMembership(ctx);
+  const task = await ctx.db.get(taskId);
+
+  if (!task || task.organizationId !== access.organizationId || !canViewTask(task, access.membership)) {
+    throw new Error("Task not found in the active organization");
+  }
+
+  return { ...access, task };
+}
+
+async function insertTaskAudit(
+  ctx: MutationCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    taskId: Id<"tasks">;
+    actorMembershipId?: Id<"memberships">;
+    type: string;
+    message: string;
+    createdAt: string;
+  },
+) {
+  await ctx.db.insert("taskAudits", {
+    organizationId: args.organizationId,
+    taskId: args.taskId,
+    actorMembershipId: args.actorMembershipId,
+    type: args.type,
+    message: args.message,
+    createdAt: args.createdAt,
+  });
+}
+
 async function hydrateTasks(
   ctx: QueryCtx | MutationCtx,
   tasks: Doc<"tasks">[],
@@ -181,8 +237,54 @@ export const getDetail = query({
       actorUsers.filter(Boolean).map((actorUser) => [String(actorUser!._id), actorUser!]),
     );
 
+    let teamMembers: Array<{ membershipId: string; userId: string; name: string }> = [];
+    if (
+      membership.role === "subadmin" &&
+      task.accountableLeadMembershipId === membership._id &&
+      task.assignedToMembershipId === membership._id
+    ) {
+      const scopedMemberships = await ctx.db
+        .query("memberships")
+        .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
+        .collect();
+
+      const eligibleMemberships = scopedMemberships.filter(
+        (entry) =>
+          entry.status === "active" &&
+          entry.role === "employee" &&
+          entry.teamIds.some((teamId) => membership.teamIds.map(String).includes(String(teamId))),
+      );
+
+      const eligibleUsers = await Promise.all(
+        eligibleMemberships.map((entry) => ctx.db.get(entry.userId)),
+      );
+
+      teamMembers = eligibleMemberships
+        .map((entry, index) => {
+          const memberUser = eligibleUsers[index];
+          if (!memberUser) return null;
+          return {
+            membershipId: String(entry._id),
+            userId: String(memberUser._id),
+            name: memberUser.name,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a!.name.localeCompare(b!.name)) as Array<{
+          membershipId: string;
+          userId: string;
+          name: string;
+        }>;
+    }
+
     return {
       task: hydratedTask,
+      canDelegate:
+        membership.role === "subadmin" &&
+        task.accountableLeadMembershipId === membership._id &&
+        task.assignedToMembershipId === membership._id &&
+        !task.delegatedAt,
+      teamMembers,
       audit: audits.map((audit) => {
         const actorMembership = audit.actorMembershipId
           ? actorMembershipMap.get(String(audit.actorMembershipId))
@@ -318,5 +420,323 @@ export const create = mutation({
     }
 
     return await ctx.db.get(taskId);
+  },
+});
+
+export const addNote = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, membership, task } = await getVisibleTask(ctx, args.taskId);
+    const note = args.message.trim();
+
+    if (!note) {
+      throw new Error("A note is required");
+    }
+
+    const now = new Date().toISOString();
+
+    await ctx.db.patch(task._id, {
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    await insertTaskAudit(ctx, {
+      organizationId,
+      taskId: task._id,
+      actorMembershipId: membership._id,
+      type: "Note",
+      message: note,
+      createdAt: now,
+    });
+
+    return await ctx.db.get(task._id);
+  },
+});
+
+export const updateStatus = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    status: v.union(
+      v.literal("Open"),
+      v.literal("In Progress"),
+      v.literal("Completed"),
+      v.literal("Pending Approval"),
+      v.literal("Verified"),
+    ),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
+    const nextStatuses = getAllowedNextStatuses(task.status, membership.role);
+
+    if (!nextStatuses.includes(args.status)) {
+      throw new Error("That status transition is not allowed");
+    }
+
+    const now = new Date().toISOString();
+    const today = now.split("T")[0] || now;
+    const note = args.note?.trim();
+    const isStart = args.status === "In Progress" && task.status === "Open";
+    const isDone = args.status === "Completed";
+
+    await ctx.db.patch(task._id, {
+      status: args.status,
+      startedAt: isStart ? today : task.startedAt,
+      completedAt: isDone ? today : args.status === "Open" ? undefined : task.completedAt,
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    if (note) {
+      await insertTaskAudit(ctx, {
+        organizationId,
+        taskId: task._id,
+        actorMembershipId: membership._id,
+        type: "Progress Update",
+        message: note,
+        createdAt: now,
+      });
+    }
+
+    if (isStart) {
+      await insertTaskAudit(ctx, {
+        organizationId,
+        taskId: task._id,
+        type: "Status",
+        message: `▶ Task started on ${today} by ${user.name} (${mapRole(membership.role)}). Status: Open → In Progress.`,
+        createdAt: now,
+      });
+    }
+
+    if (isDone) {
+      await insertTaskAudit(ctx, {
+        organizationId,
+        taskId: task._id,
+        type: "Status",
+        message: `✓ Task completed on ${today} by ${user.name} (${mapRole(membership.role)}). Awaiting verification.`,
+        createdAt: now,
+      });
+
+      const creatorMembership = await ctx.db.get(task.createdByMembershipId);
+      const creatorUser = creatorMembership ? await ctx.db.get(creatorMembership.userId) : null;
+      if (creatorUser) {
+        await insertTaskAudit(ctx, {
+          organizationId,
+          taskId: task._id,
+          type: "Notification",
+          message: `📋 Notification sent to ${creatorUser.name}: "${task.title}" has been completed by ${user.name}.`,
+          createdAt: now,
+        });
+      }
+    }
+
+    return await ctx.db.get(task._id);
+  },
+});
+
+export const delegate = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    assigneeMembershipId: v.id("memberships"),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
+
+    if (membership.role !== "subadmin") {
+      throw new Error("Only subadmins can delegate tasks");
+    }
+
+    if (task.accountableLeadMembershipId !== membership._id) {
+      throw new Error("Only the accountable subadmin can delegate this task");
+    }
+
+    if (task.assignedToMembershipId !== membership._id) {
+      throw new Error("This task has already been delegated");
+    }
+
+    const assigneeMembership = await ctx.db.get(args.assigneeMembershipId);
+    if (
+      !assigneeMembership ||
+      assigneeMembership.organizationId !== organizationId ||
+      assigneeMembership.status !== "active" ||
+      assigneeMembership.role !== "employee"
+    ) {
+      throw new Error("That employee is not valid for this organization");
+    }
+
+    const teamIds = membership.teamIds.map(String);
+    const sharesTeam = assigneeMembership.teamIds.some((teamId) => teamIds.includes(String(teamId)));
+    if (!sharesTeam) {
+      throw new Error("You can only delegate to people in your scope");
+    }
+
+    const assigneeUser = await ctx.db.get(assigneeMembership.userId);
+    const now = new Date().toISOString();
+
+    await ctx.db.patch(task._id, {
+      assignedToMembershipId: assigneeMembership._id,
+      delegatedAt: now,
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    await insertTaskAudit(ctx, {
+      organizationId,
+      taskId: task._id,
+      actorMembershipId: membership._id,
+      type: "Delegated",
+      message: `Delegated to ${assigneeUser?.name || "team member"} by ${user.name}.`,
+      createdAt: now,
+    });
+
+    return await ctx.db.get(task._id);
+  },
+});
+
+export const approvePending = mutation({
+  args: {
+    taskId: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
+
+    if (membership.role === "employee") {
+      throw new Error("Employees cannot approve tasks");
+    }
+
+    if (task.status !== "Pending Approval") {
+      throw new Error("Only pending-approval tasks can be approved");
+    }
+
+    const now = new Date().toISOString();
+
+    await ctx.db.patch(task._id, {
+      status: "Open",
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    await insertTaskAudit(ctx, {
+      organizationId,
+      taskId: task._id,
+      actorMembershipId: membership._id,
+      type: "Approval",
+      message: `Approved by ${user.name}. Work may proceed.`,
+      createdAt: now,
+    });
+
+    return await ctx.db.get(task._id);
+  },
+});
+
+export const verify = mutation({
+  args: {
+    taskId: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
+
+    if (membership.role === "employee") {
+      throw new Error("Employees cannot verify tasks");
+    }
+
+    if (task.status !== "Completed") {
+      throw new Error("Only completed tasks can be verified");
+    }
+
+    const now = new Date().toISOString();
+    const completedLate = task.dueDate && task.completedAt && task.completedAt > task.dueDate;
+
+    await ctx.db.patch(task._id, {
+      status: "Verified",
+      verifiedAt: now.split("T")[0] || now,
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    await insertTaskAudit(ctx, {
+      organizationId,
+      taskId: task._id,
+      type: "Verified",
+      message: `✓ Verified & closed by ${user.name}.${completedLate ? " ⚠ Completed past due date." : ""}`,
+      createdAt: now,
+    });
+
+    const creatorMembership = await ctx.db.get(task.createdByMembershipId);
+    const creatorUser = creatorMembership ? await ctx.db.get(creatorMembership.userId) : null;
+    if (creatorUser) {
+      await insertTaskAudit(ctx, {
+        organizationId,
+        taskId: task._id,
+        type: "Notification",
+        message: `📋 ${creatorUser.name} notified: "${task.title}" has been verified and closed.`,
+        createdAt: now,
+      });
+    }
+
+    return await ctx.db.get(task._id);
+  },
+});
+
+export const requestRework = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
+
+    if (membership.role === "employee") {
+      throw new Error("Employees cannot request rework");
+    }
+
+    if (task.status !== "Completed") {
+      throw new Error("Only completed tasks can be sent to rework");
+    }
+
+    const settings = await ctx.db
+      .query("orgSettings")
+      .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
+      .unique();
+
+    const cycle = task.reworkCount + 1;
+    const escalated = cycle >= (settings?.reworkAlertCycles ?? 3);
+    const now = new Date().toISOString();
+    const reason = args.reason.trim() || "Rework required";
+
+    await ctx.db.patch(task._id, {
+      status: "In Progress",
+      isReworked: true,
+      reworkCount: cycle,
+      priority: escalated ? "critical" : task.priority,
+      completedAt: undefined,
+      verifiedAt: undefined,
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    await insertTaskAudit(ctx, {
+      organizationId,
+      taskId: task._id,
+      actorMembershipId: membership._id,
+      type: "Rework",
+      message: `Rework requested by ${user.name}: ${reason}. Cycle ${cycle}.`,
+      createdAt: now,
+    });
+
+    if (escalated) {
+      await insertTaskAudit(ctx, {
+        organizationId,
+        taskId: task._id,
+        type: "Escalation",
+        message: `⚠ Escalated to CRITICAL after ${cycle} rework cycles.`,
+        createdAt: now,
+      });
+    }
+
+    return await ctx.db.get(task._id);
   },
 });

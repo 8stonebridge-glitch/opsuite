@@ -3,12 +3,15 @@ import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
 import {
   useCurrentName,
   useCurrentRoleLabel,
   useIndustryColor,
 } from '../../store/selectors';
+import { useBackendAuth } from '../../providers/BackendProviders';
 import { getNextStatuses } from '../../utils/task-helpers';
 import { getToday, getNowISO } from '../../utils/date';
 import { StatusBadge } from '../ui/Badge';
@@ -20,13 +23,30 @@ export function TaskUpdateScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { state, dispatch } = useApp();
+  const { clerkEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const curName = useCurrentName();
   const curRoleLabel = useCurrentRoleLabel();
+  const isBackendMode = !state.isDemo && clerkEnabled;
+  const backendDetail = useQuery(
+    api.tasks.getDetail,
+    isBackendMode && id ? { taskId: id as never } : 'skip'
+  );
+  const updateStatus = useMutation(api.tasks.updateStatus);
 
-  const task = state.tasks.find((t) => t.id === id);
+  const task = isBackendMode ? backendDetail?.task : state.tasks.find((t) => t.id === id);
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus | ''>('');
   const [note, setNote] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isBackendMode && backendDetail === undefined) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+        <Text className="text-gray-400">Loading task...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!task) {
     return (
@@ -39,8 +59,31 @@ export function TaskUpdateScreen() {
   const nextStatuses = getNextStatuses(task.status, state.role);
   const newStatus = selectedStatus || (nextStatuses.length === 1 ? nextStatuses[0] : '');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!newStatus) return;
+    setError('');
+
+    if (isBackendMode) {
+      setIsSubmitting(true);
+      try {
+        await updateStatus({
+          taskId: task.id as never,
+          status: newStatus,
+          note: note.trim() || undefined,
+        });
+        router.back();
+        return;
+      } catch (submitError) {
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : 'We could not submit that update yet.'
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+
     const today = getToday();
     const now = getNowISO();
 
@@ -172,10 +215,14 @@ export function TaskUpdateScreen() {
           />
         </View>
 
+        {error ? (
+          <Text className="text-sm text-red-600 mb-4">{error}</Text>
+        ) : null}
+
         <Button
-          title="Submit Update"
-          onPress={handleSubmit}
-          disabled={!newStatus}
+          title={isSubmitting ? 'Saving...' : 'Submit Update'}
+          onPress={() => void handleSubmit()}
+          disabled={!newStatus || isSubmitting}
           color={color}
         />
       </ScrollView>
