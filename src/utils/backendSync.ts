@@ -27,6 +27,7 @@ interface TeamEntry {
   _id: string;
   name: string;
   color?: string | null;
+  siteId?: string | null;
   subadminMembershipId?: string | null;
 }
 
@@ -115,48 +116,49 @@ export function buildSyncedTeams(
   memberships: MembershipDirectoryEntry[],
 ): Team[] {
   const membershipMap = new Map(memberships.map((entry) => [String(entry.membership._id), entry]));
+  const syncedTeams: Team[] = [];
 
-  return teams
-    .map((team) => {
-      const leadEntry = team.subadminMembershipId
-        ? membershipMap.get(String(team.subadminMembershipId))
-        : undefined;
+  for (const team of teams) {
+    const leadEntry = team.subadminMembershipId
+      ? membershipMap.get(String(team.subadminMembershipId))
+      : undefined;
 
-      if (!leadEntry || leadEntry.membership.role !== 'subadmin') {
-        return null;
-      }
+    if (!leadEntry || leadEntry.membership.role !== 'subadmin') {
+      continue;
+    }
 
-      const lead: Employee = {
-        id: String(leadEntry.user._id),
-        name: leadEntry.user.name,
-        role: 'subadmin',
+    const lead: Employee = {
+      id: String(leadEntry.user._id),
+      name: leadEntry.user.name,
+      role: 'subadmin',
+      teamId: String(team._id),
+      teamName: team.name,
+    };
+
+    const members: Employee[] = memberships
+      .filter(
+        (entry) =>
+          entry.membership.role === 'employee' &&
+          entry.membership.teamIds.map(String).includes(String(team._id)),
+      )
+      .map((entry) => ({
+        id: String(entry.user._id),
+        name: entry.user.name,
+        role: 'employee' as const,
         teamId: String(team._id),
         teamName: team.name,
-      };
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
-      const members: Employee[] = memberships
-        .filter(
-          (entry) =>
-            entry.membership.role === 'employee' &&
-            entry.membership.teamIds.map(String).includes(String(team._id)),
-        )
-        .map((entry) => ({
-          id: String(entry.user._id),
-          name: entry.user.name,
-          role: 'employee' as const,
-          teamId: String(team._id),
-          teamName: team.name,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+    syncedTeams.push({
+      id: String(team._id),
+      name: team.name,
+      color: team.color || '#6b7280',
+      siteId: team.siteId ? String(team.siteId) : undefined,
+      lead,
+      members,
+    });
+  }
 
-      return {
-        id: String(team._id),
-        name: team.name,
-        color: team.color || '#6b7280',
-        lead,
-        members,
-      };
-    })
-    .filter((team): team is Team => Boolean(team))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return syncedTeams.sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -26,6 +26,7 @@ export interface Team {
   id: string;
   name: string;
   color: string;
+  siteId?: string;
   lead: Employee;
   members: Employee[];
 }

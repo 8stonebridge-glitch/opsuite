@@ -412,6 +412,7 @@ export type AppAction =
   | { type: 'ADD_SITE'; site: Site }
   | { type: 'REMOVE_SITE'; siteId: string }
   | { type: 'ADD_TEAM'; team: Team }
+  | { type: 'ADD_MEMBER_TO_TEAM'; teamId: string; member: Employee }
   | { type: 'FINISH_ONBOARDING' }
   | { type: 'SWITCH_USER'; role: Role; userId: string | null }
   | { type: 'ADD_TASK'; task: Task }
@@ -506,6 +507,18 @@ function flatReducer(state: AppState, action: Exclude<AppAction, InternalOnlyAct
       return {
         ...state,
         teams: [...state.teams, action.team],
+      };
+    case 'ADD_MEMBER_TO_TEAM':
+      return {
+        ...state,
+        teams: state.teams.map((team) =>
+          team.id === action.teamId
+            ? {
+                ...team,
+                members: [...team.members, action.member].sort((a, b) => a.name.localeCompare(b.name)),
+              }
+            : team,
+        ),
       };
     case 'FINISH_ONBOARDING': {
       const indId = state.onboarding.industry?.id || '';

@@ -50,6 +50,22 @@ export const syncFromClerk = mutation({
       return await ctx.db.get(existing._id);
     }
 
+    const existingByEmail = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+
+    if (existingByEmail) {
+      await ctx.db.patch(existingByEmail._id, {
+        clerkUserId,
+        email,
+        name,
+        avatarUrl,
+        updatedAt: now,
+      });
+      return await ctx.db.get(existingByEmail._id);
+    }
+
     const userId = await ctx.db.insert("users", {
       clerkUserId,
       email,
