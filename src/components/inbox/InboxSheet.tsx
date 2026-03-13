@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useInbox } from './InboxProvider';
 import { useApp } from '../../store/AppContext';
-import type { AppNotification } from '../../types';
+import type { AppNotification, Role } from '../../types';
 
 // ── Time formatting ──────────────────────────────────────────────────
 
@@ -86,22 +86,72 @@ export function InboxSheet() {
   const { state } = useApp();
   const router = useRouter();
 
-  const handlePress = (notification: AppNotification) => {
-    closeInbox();
-
+  const resolveNotificationPath = (notification: AppNotification, role: Role) => {
     const rolePrefix =
-      state.role === 'admin'
+      role === 'admin'
         ? '(owner_admin)'
-        : state.role === 'subadmin'
+        : role === 'subadmin'
         ? '(subadmin)'
         : '(employee)';
 
+    if (notification.taskId) {
+      return `/${rolePrefix}/tasks/${notification.taskId}`;
+    }
+
+    const explicitRoute = notification.route?.replace(/^\/+/, '');
+    if (explicitRoute) {
+      const routeMap: Record<Role, Record<string, string>> = {
+        admin: {
+          overview: '/(owner_admin)/overview',
+          tasks: '/(owner_admin)/tasks',
+          people: '/(owner_admin)/people',
+          sites: '/(owner_admin)/sites',
+          more: '/(owner_admin)/more',
+          availability: '/(owner_admin)/overview',
+          handoff: '/(owner_admin)/overview',
+        },
+        subadmin: {
+          overview: '/(subadmin)/overview',
+          tasks: '/(subadmin)/tasks',
+          people: '/(subadmin)/people',
+          'check-ins': '/(subadmin)/check-ins',
+          more: '/(subadmin)/more',
+          availability: '/(subadmin)/overview',
+          handoff: '/(subadmin)/check-ins',
+        },
+        employee: {
+          'my-day': '/(employee)/my-day',
+          tasks: '/(employee)/tasks',
+          'check-in': '/(employee)/check-in',
+          more: '/(employee)/more',
+          availability: '/(employee)/more',
+          handoff: '/(employee)/check-in',
+        },
+      };
+
+      const resolved = routeMap[role][explicitRoute];
+      if (resolved) return resolved;
+    }
+
+    switch (notification.type) {
+      case 'availability':
+        return role === 'employee' ? '/(employee)/more' : role === 'subadmin' ? '/(subadmin)/overview' : '/(owner_admin)/overview';
+      case 'handoff':
+        return role === 'employee' ? '/(employee)/check-in' : role === 'subadmin' ? '/(subadmin)/check-ins' : '/(owner_admin)/overview';
+      case 'coverage':
+      case 'review':
+      case 'task':
+      default:
+        return `/${rolePrefix}/tasks`;
+    }
+  };
+
+  const handlePress = (notification: AppNotification) => {
+    closeInbox();
+    const targetPath = resolveNotificationPath(notification, state.role);
+
     setTimeout(() => {
-      if (notification.taskId) {
-        router.push(`/${rolePrefix}/tasks/${notification.taskId}` as any);
-      } else if (notification.route) {
-        router.push(`/${rolePrefix}/${notification.route}` as any);
-      }
+      router.push(targetPath as any);
     }, 100);
   };
 

@@ -132,6 +132,7 @@ export interface Account {
   email: string;
   passwordHash: string;
   isDemo: boolean;
+  clerkUserId?: string | null;
 }
 
 // ── Derived UI enums (computed, not stored in state) ──────────────────

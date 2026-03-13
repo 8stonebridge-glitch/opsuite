@@ -21,6 +21,7 @@ import type {
 import { getToday, getNowISO } from '../utils/date';
 import { uid } from '../utils/id';
 import { CATEGORIES_BY_INDUSTRY } from '../constants/categories';
+import { INDUSTRIES } from '../constants/industries';
 import { generateSeedData, generateTeams, generateAvailabilityRecords } from './seed';
 import { hashPassword } from '../utils/auth';
 
@@ -430,13 +431,45 @@ export type AppAction =
   | { type: 'CANCEL_AVAILABILITY'; recordId: string }
   | { type: 'SET_AVAILABILITY'; availability: AvailabilityRecord[] }
   | { type: 'SWITCH_ORGANIZATION'; workspaceId: string }
+  | {
+      type: 'SYNC_EXTERNAL_OWNER';
+      clerkUserId: string;
+      name: string;
+      email: string;
+      workspaces: {
+        id: string;
+        orgName: string;
+        industryId?: string | null;
+        orgSettings?: OrgSettings;
+      }[];
+      activeWorkspaceId: string;
+    }
   | { type: 'SIGN_UP'; name: string; email: string; passwordHash: string; orgName: string; industry: Industry; orgStructure: 'with_subadmins' | 'admin_only' }
   | { type: 'SIGN_IN'; accountId: string }
   | { type: 'SIGN_OUT' };
 
 // ── Flat reducer (operates on projected AppState — unchanged from before) ──
 
-type InternalOnlyAction = { type: 'SWITCH_ORGANIZATION' } | { type: 'SIGN_UP' } | { type: 'SIGN_IN' } | { type: 'SIGN_OUT' };
+type InternalOnlyAction =
+  | { type: 'SWITCH_ORGANIZATION' }
+  | { type: 'SYNC_EXTERNAL_OWNER' }
+  | { type: 'SIGN_UP' }
+  | { type: 'SIGN_IN' }
+  | { type: 'SIGN_OUT' };
+
+function getIndustryById(industryId?: string | null): Industry | null {
+  if (!industryId) return null;
+  return INDUSTRIES.find((industry) => industry.id === industryId) || null;
+}
+
+function categoriesForIndustry(industryId?: string | null): Category[] {
+  if (!industryId) return [];
+  return (CATEGORIES_BY_INDUSTRY[industryId] || []).map((name, index) => ({
+    id: `cat-${industryId}-${index + 1}`,
+    name,
+  }));
+}
+
 function flatReducer(state: AppState, action: Exclude<AppAction, InternalOnlyAction>): AppState {
   switch (action.type) {
     case 'SET_ORG_NAME':
@@ -648,6 +681,90 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       workspaces: [...internal.workspaces, newWorkspace],
       currentAccountId: accountId,
       activeWorkspaceId: wsId,
+      role: 'admin',
+      userId: null,
+      onboardingComplete: true,
+    };
+  }
+
+  if (action.type === 'SYNC_EXTERNAL_OWNER') {
+    const email = action.email.trim().toLowerCase();
+    const existingAccount = internal.accounts.find((account) => account.email.toLowerCase() === email);
+    const accountId = existingAccount?.id || uid();
+
+    const nextAccount: Account = {
+      id: accountId,
+      name: action.name.trim(),
+      email,
+      passwordHash: existingAccount?.passwordHash || '',
+      isDemo: false,
+      clerkUserId: action.clerkUserId,
+    };
+
+    const otherAccounts = internal.accounts.filter((account) => account.id !== accountId);
+    const nextAccounts = [...otherAccounts, nextAccount];
+
+    const existingWorkspaceMap = new Map(
+      internal.workspaces
+        .filter((workspace) => workspace.ownerId === accountId)
+        .map((workspace) => [workspace.id, workspace] as const)
+    );
+
+    const syncedWorkspaces: Workspace[] = action.workspaces.map((workspace) => {
+      const existingWorkspace = existingWorkspaceMap.get(workspace.id);
+      const industry = getIndustryById(workspace.industryId);
+      const defaultSettings = workspace.orgSettings || existingWorkspace?.config.orgSettings || {
+        noChangeAlertWorkdays: 3,
+        reworkAlertCycles: 3,
+      };
+
+      if (existingWorkspace) {
+        return {
+          ...existingWorkspace,
+          config: {
+            ...existingWorkspace.config,
+            orgName: workspace.orgName,
+            industry,
+            adminName: action.name.trim(),
+            orgSettings: defaultSettings,
+          },
+        };
+      }
+
+      return {
+        id: workspace.id,
+        ownerId: accountId,
+        config: {
+          orgName: workspace.orgName,
+          industry,
+          adminName: action.name.trim(),
+          sites: [],
+          orgSettings: defaultSettings,
+        },
+        data: {
+          tasks: [],
+          audit: [],
+          checkIns: [],
+          handoffs: [],
+          categories: categoriesForIndustry(workspace.industryId),
+          teams: [],
+          availability: [],
+        },
+      };
+    });
+
+    const otherWorkspaces = internal.workspaces.filter((workspace) => workspace.ownerId !== accountId);
+    const activeWorkspaceId =
+      action.activeWorkspaceId ||
+      syncedWorkspaces[0]?.id ||
+      internal.activeWorkspaceId;
+
+    return {
+      ...internal,
+      accounts: nextAccounts,
+      workspaces: [...otherWorkspaces, ...syncedWorkspaces],
+      currentAccountId: accountId,
+      activeWorkspaceId,
       role: 'admin',
       userId: null,
       onboardingComplete: true,

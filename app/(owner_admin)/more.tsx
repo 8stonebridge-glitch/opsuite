@@ -2,7 +2,11 @@ import { View, Text, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useClerk } from '@clerk/expo';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { useIndustryColor, useTeams, useAllEmployees } from '../../src/store/selectors';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
@@ -12,15 +16,29 @@ import { OrgSwitcher } from '../../src/components/layout/OrgSwitcher';
 
 export default function OwnerMoreScreen() {
   const { state, dispatch } = useApp();
+  const { signOut } = useClerk();
+  const { clerkEnabled } = useBackendAuth();
+  const updateOrgSettings = useMutation(api.orgSettings.update);
   const color = useIndustryColor();
   const teams = useTeams();
   const allEmployees = useAllEmployees();
   const router = useRouter();
 
-  const adjustSetting = (key: 'noChangeAlertWorkdays' | 'reworkAlertCycles', delta: number) => {
+  const adjustSetting = async (key: 'noChangeAlertWorkdays' | 'reworkAlertCycles', delta: number) => {
     const current = state.orgSettings[key];
     const newVal = Math.max(1, Math.min(10, current + delta));
     dispatch({ type: 'SET_ORG_SETTINGS', settings: { [key]: newVal } });
+
+    if (!state.isDemo && clerkEnabled) {
+      try {
+        await updateOrgSettings({
+          organizationId: state.activeWorkspaceId as never,
+          [key]: newVal,
+        });
+      } catch (error) {
+        console.warn('Failed to persist operational rules in Convex.', error);
+      }
+    }
   };
 
   return (
@@ -50,8 +68,8 @@ export default function OwnerMoreScreen() {
               label="Stalled alert after"
               value={state.orgSettings.noChangeAlertWorkdays}
               unit="workdays"
-              onMinus={() => adjustSetting('noChangeAlertWorkdays', -1)}
-              onPlus={() => adjustSetting('noChangeAlertWorkdays', 1)}
+              onMinus={() => void adjustSetting('noChangeAlertWorkdays', -1)}
+              onPlus={() => void adjustSetting('noChangeAlertWorkdays', 1)}
               color={color}
             />
             <StepperRow
@@ -59,8 +77,8 @@ export default function OwnerMoreScreen() {
               label="Rework escalation after"
               value={state.orgSettings.reworkAlertCycles}
               unit="cycles"
-              onMinus={() => adjustSetting('reworkAlertCycles', -1)}
-              onPlus={() => adjustSetting('reworkAlertCycles', 1)}
+              onMinus={() => void adjustSetting('reworkAlertCycles', -1)}
+              onPlus={() => void adjustSetting('reworkAlertCycles', 1)}
               color={color}
               last
             />
@@ -94,7 +112,10 @@ export default function OwnerMoreScreen() {
           <Button
             title="Sign Out"
             variant="outline"
-            onPress={() => {
+            onPress={async () => {
+              if (!state.isDemo) {
+                await signOut();
+              }
               dispatch({ type: 'SIGN_OUT' });
               router.replace('/');
             }}
@@ -117,10 +138,20 @@ function SettingRow({
   last?: boolean;
 }) {
   return (
-    <View className={`flex-row items-center gap-3 py-3 ${last ? '' : 'border-b border-gray-100'}`}>
+    <View
+      className={`flex-row gap-3 py-3 ${last ? '' : 'border-b border-gray-100'}`}
+      style={{ alignItems: 'flex-start' }}
+    >
       <Ionicons name={icon as any} size={18} color="#9ca3af" />
-      <Text className="text-sm text-gray-700 flex-1">{label}</Text>
-      <Text className="text-sm text-gray-400">{value}</Text>
+      <Text className="text-sm text-gray-700 flex-1" style={{ paddingRight: 8, minWidth: 0 }}>
+        {label}
+      </Text>
+      <Text
+        className="text-sm text-gray-400 text-right"
+        style={{ maxWidth: '46%', flexShrink: 1, flexWrap: 'wrap' }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -155,7 +186,7 @@ function StepperRow({
         >
           <Ionicons name="remove" size={16} color="#6b7280" />
         </Pressable>
-        <Text className="text-sm font-semibold text-gray-900 w-12 text-center">
+        <Text className="text-sm font-semibold text-gray-900 min-w-[3rem] text-center px-1" numberOfLines={1}>
           {value} {unit === 'workdays' ? 'd' : unit === 'cycles' ? 'x' : unit}
         </Text>
         <Pressable

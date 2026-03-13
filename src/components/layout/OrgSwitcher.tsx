@@ -1,9 +1,11 @@
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
+import { useBackendAuth } from '../../providers/BackendProviders';
 import { Card } from '../ui/Card';
-import type { Industry } from '../../types';
 
 const INDUSTRY_ICONS: Record<string, string> = {
   fm: 'business',
@@ -19,9 +21,20 @@ const INDUSTRY_ICONS: Record<string, string> = {
 export function OrgSwitcher() {
   const { state, dispatch } = useApp();
   const router = useRouter();
+  const { clerkEnabled } = useBackendAuth();
+  const setActiveOrganization = useMutation(api.users.setActiveOrganization);
 
-  const handleSwitch = (workspaceId: string) => {
+  const handleSwitch = async (workspaceId: string) => {
     if (workspaceId === state.activeWorkspaceId) return;
+
+    if (!state.isDemo && clerkEnabled) {
+      try {
+        await setActiveOrganization({ organizationId: workspaceId as never });
+      } catch (error) {
+        console.warn('Failed to persist active organization in Convex.', error);
+      }
+    }
+
     dispatch({ type: 'SWITCH_ORGANIZATION', workspaceId });
     router.replace('/(owner_admin)/overview' as any);
   };
@@ -38,7 +51,7 @@ export function OrgSwitcher() {
           const color = ws.industry?.color || '#6b7280';
 
           return (
-            <Pressable key={ws.id} onPress={() => handleSwitch(ws.id)}>
+            <Pressable key={ws.id} onPress={() => void handleSwitch(ws.id)}>
               <Card
                 className={`flex-row items-center gap-3 ${
                   isActive ? 'border-2' : ''
@@ -51,11 +64,11 @@ export function OrgSwitcher() {
                 >
                   <Ionicons name={icon as any} size={20} color={color} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900">
+                <View className="flex-1 min-w-0">
+                  <Text className="text-sm font-semibold text-gray-900" numberOfLines={2}>
                     {ws.orgName}
                   </Text>
-                  <Text className="text-xs text-gray-400">
+                  <Text className="text-xs text-gray-400" numberOfLines={2}>
                     {ws.industry?.name || 'General'}
                   </Text>
                 </View>

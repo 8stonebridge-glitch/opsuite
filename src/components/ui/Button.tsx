@@ -1,4 +1,4 @@
-import { Pressable, Text, type ViewStyle } from 'react-native';
+import { TouchableOpacity, Text, type ViewStyle } from 'react-native';
 
 interface ButtonProps {
   title: string;
@@ -40,13 +40,15 @@ export function Button({
     color && variant === 'primary' ? { backgroundColor: color } : undefined;
 
   return (
-    <Pressable
+    <TouchableOpacity
       className={`${base} ${variants[variant]} ${disabled ? 'opacity-20' : ''} ${className}`}
       style={dynamicStyle}
       onPress={onPress}
       disabled={disabled}
+      activeOpacity={0.85}
+      accessibilityRole="button"
     >
       <Text className={`${textVariants[variant]} ${textSize}`}>{title}</Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
