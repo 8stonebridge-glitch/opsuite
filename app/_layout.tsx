@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+import { AuthConvexProvider } from '../src/lib/auth-convex-provider';
 import { AppProvider } from '../src/store/AppContext';
 import { InboxProvider } from '../src/components/inbox/InboxProvider';
 import { InboxSheet } from '../src/components/inbox/InboxSheet';
@@ -24,8 +25,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AppProvider>
-          <InboxProvider>
+        <AuthConvexProvider>
+          <AppProvider>
+            <InboxProvider>
             <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
@@ -36,8 +38,9 @@ export default function RootLayout() {
               <Stack.Screen name="(employee)" />
             </Stack>
             <InboxSheet />
-          </InboxProvider>
-        </AppProvider>
+            </InboxProvider>
+          </AppProvider>
+        </AuthConvexProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
