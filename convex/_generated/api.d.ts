@@ -13,6 +13,7 @@ import type * as memberships from "../memberships.js";
 import type * as orgSettings from "../orgSettings.js";
 import type * as organizations from "../organizations.js";
 import type * as sites from "../sites.js";
+import type * as tasks from "../tasks.js";
 import type * as teams from "../teams.js";
 import type * as users from "../users.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   orgSettings: typeof orgSettings;
   organizations: typeof organizations;
   sites: typeof sites;
+  tasks: typeof tasks;
   teams: typeof teams;
   users: typeof users;
 }>;
