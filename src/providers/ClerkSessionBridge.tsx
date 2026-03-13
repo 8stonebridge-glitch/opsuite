@@ -3,7 +3,12 @@ import { useConvex, useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useApp } from '../store/AppContext';
 import { useBackendAuth } from './BackendProviders';
-import { buildSyncedWorkspaces, waitForConvexIdentity } from '../utils/backendSync';
+import {
+  buildSyncedSites,
+  buildSyncedTeams,
+  buildSyncedWorkspaces,
+  waitForConvexIdentity,
+} from '../utils/backendSync';
 
 export function ClerkSessionBridge() {
   const { state, dispatch } = useApp();
@@ -29,6 +34,39 @@ export function ClerkSessionBridge() {
   );
   const activeOrganization = useQuery(
     api.organizations.active,
+    clerkEnabled &&
+      isLoaded &&
+      isSignedIn &&
+      !convexAuthLoading &&
+      convexAuthenticated &&
+      viewer?.user
+      ? {}
+      : 'skip'
+  );
+  const sites = useQuery(
+    api.sites.listForActiveOrganization,
+    clerkEnabled &&
+      isLoaded &&
+      isSignedIn &&
+      !convexAuthLoading &&
+      convexAuthenticated &&
+      viewer?.user
+      ? {}
+      : 'skip'
+  );
+  const memberships = useQuery(
+    api.memberships.listForActiveOrganization,
+    clerkEnabled &&
+      isLoaded &&
+      isSignedIn &&
+      !convexAuthLoading &&
+      convexAuthenticated &&
+      viewer?.user
+      ? {}
+      : 'skip'
+  );
+  const teams = useQuery(
+    api.teams.listForActiveOrganization,
     clerkEnabled &&
       isLoaded &&
       isSignedIn &&
@@ -149,6 +187,54 @@ export function ClerkSessionBridge() {
     isSignedIn,
     organizations,
     userId,
+    viewer,
+  ]);
+
+  useEffect(() => {
+    if (
+      !clerkEnabled ||
+      !isLoaded ||
+      !isSignedIn ||
+      convexAuthLoading ||
+      !convexAuthenticated ||
+      !viewer?.user ||
+      organizations === undefined ||
+      activeOrganization === undefined ||
+      sites === undefined ||
+      memberships === undefined ||
+      teams === undefined
+    ) {
+      return;
+    }
+
+    const activeWorkspaceId =
+      String(activeOrganization?.organization?._id || '') ||
+      String(
+        organizations.find((entry) => entry?.isActive)?.organization._id || ''
+      );
+
+    if (!activeWorkspaceId) {
+      return;
+    }
+
+    dispatch({
+      type: 'SYNC_EXTERNAL_ACTIVE_STRUCTURE',
+      workspaceId: activeWorkspaceId,
+      sites: buildSyncedSites(sites as never),
+      teams: buildSyncedTeams(teams as never, memberships as never),
+    });
+  }, [
+    activeOrganization,
+    clerkEnabled,
+    convexAuthenticated,
+    convexAuthLoading,
+    dispatch,
+    isLoaded,
+    isSignedIn,
+    memberships,
+    organizations,
+    sites,
+    teams,
     viewer,
   ]);
 

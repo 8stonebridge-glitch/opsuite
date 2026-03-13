@@ -1,4 +1,5 @@
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 
 type AuthCtx = QueryCtx | MutationCtx;
 
@@ -26,6 +27,46 @@ export async function requireCurrentUser(ctx: AuthCtx) {
     throw new Error("User record not initialized");
   }
   return { identity, user };
+}
+
+export async function requireActiveOrganizationMembership(ctx: AuthCtx) {
+  const { identity, user } = await requireCurrentUser(ctx);
+
+  if (!user.activeOrganizationId) {
+    throw new Error("No active organization selected");
+  }
+
+  const membership = await ctx.db
+    .query("memberships")
+    .withIndex("by_organization_user", (q) =>
+      q.eq("organizationId", user.activeOrganizationId as Id<"organizations">).eq("userId", user._id),
+    )
+    .unique();
+
+  if (!membership || membership.status !== "active") {
+    throw new Error("You do not have access to the active organization");
+  }
+
+  const organization = await ctx.db.get(user.activeOrganizationId);
+  if (!organization) {
+    throw new Error("Active organization not found");
+  }
+
+  return {
+    identity,
+    user,
+    organization,
+    membership,
+    organizationId: organization._id as Id<"organizations">,
+  };
+}
+
+export async function requireOwnerMembership(ctx: AuthCtx) {
+  const access = await requireActiveOrganizationMembership(ctx);
+  if (access.membership.role !== "owner_admin") {
+    throw new Error("Only the organization owner can perform this action");
+  }
+  return access;
 }
 
 export function displayNameFromIdentity(identity: Record<string, unknown>) {

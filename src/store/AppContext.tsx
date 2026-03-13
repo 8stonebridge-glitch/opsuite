@@ -411,6 +411,7 @@ export type AppAction =
   | { type: 'SET_ADMIN_NAME'; name: string }
   | { type: 'ADD_SITE'; site: Site }
   | { type: 'REMOVE_SITE'; siteId: string }
+  | { type: 'ADD_TEAM'; team: Team }
   | { type: 'FINISH_ONBOARDING' }
   | { type: 'SWITCH_USER'; role: Role; userId: string | null }
   | { type: 'ADD_TASK'; task: Task }
@@ -444,6 +445,12 @@ export type AppAction =
       }[];
       activeWorkspaceId: string;
     }
+  | {
+      type: 'SYNC_EXTERNAL_ACTIVE_STRUCTURE';
+      workspaceId: string;
+      sites: Site[];
+      teams: Team[];
+    }
   | { type: 'SIGN_UP'; name: string; email: string; passwordHash: string; orgName: string; industry: Industry; orgStructure: 'with_subadmins' | 'admin_only' }
   | { type: 'SIGN_IN'; accountId: string }
   | { type: 'SIGN_OUT' };
@@ -453,6 +460,7 @@ export type AppAction =
 type InternalOnlyAction =
   | { type: 'SWITCH_ORGANIZATION' }
   | { type: 'SYNC_EXTERNAL_OWNER' }
+  | { type: 'SYNC_EXTERNAL_ACTIVE_STRUCTURE' }
   | { type: 'SIGN_UP' }
   | { type: 'SIGN_IN' }
   | { type: 'SIGN_OUT' };
@@ -493,6 +501,11 @@ function flatReducer(state: AppState, action: Exclude<AppAction, InternalOnlyAct
           ...state.onboarding,
           sites: state.onboarding.sites.filter((s) => s.id !== action.siteId),
         },
+      };
+    case 'ADD_TEAM':
+      return {
+        ...state,
+        teams: [...state.teams, action.team],
       };
     case 'FINISH_ONBOARDING': {
       const indId = state.onboarding.industry?.id || '';
@@ -768,6 +781,32 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       role: 'admin',
       userId: null,
       onboardingComplete: true,
+    };
+  }
+
+  if (action.type === 'SYNC_EXTERNAL_ACTIVE_STRUCTURE') {
+    const wsIndex = internal.workspaces.findIndex((workspace) => workspace.id === action.workspaceId);
+    if (wsIndex < 0) return internal;
+
+    const targetWorkspace = internal.workspaces[wsIndex];
+    const updatedWorkspace: Workspace = {
+      ...targetWorkspace,
+      config: {
+        ...targetWorkspace.config,
+        sites: action.sites,
+      },
+      data: {
+        ...targetWorkspace.data,
+        teams: action.teams,
+      },
+    };
+
+    const nextWorkspaces = [...internal.workspaces];
+    nextWorkspaces[wsIndex] = updatedWorkspace;
+
+    return {
+      ...internal,
+      workspaces: nextWorkspaces,
     };
   }
 

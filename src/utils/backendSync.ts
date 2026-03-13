@@ -1,6 +1,6 @@
 import type { ConvexReactClient } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import type { OrgSettings } from '../types';
+import type { Employee, OrgSettings, Site, Team } from '../types';
 
 interface OrganizationListEntry {
   organization: {
@@ -16,6 +16,30 @@ interface ActiveOrganizationEntry {
     _id: string;
   } | null;
   settings?: Partial<OrgSettings> | null;
+}
+
+interface SiteEntry {
+  _id: string;
+  name: string;
+}
+
+interface TeamEntry {
+  _id: string;
+  name: string;
+  color?: string | null;
+  subadminMembershipId?: string | null;
+}
+
+interface MembershipDirectoryEntry {
+  membership: {
+    _id: string;
+    role: 'owner_admin' | 'subadmin' | 'employee';
+    teamIds: string[];
+  };
+  user: {
+    _id: string;
+    name: string;
+  };
 }
 
 export interface SyncedWorkspacePayload {
@@ -77,4 +101,62 @@ export async function waitForConvexIdentity(
   throw new Error(
     'Clerk signed in, but Convex auth is not ready yet. Check that the Clerk JWT template named "convex" is configured correctly.'
   );
+}
+
+export function buildSyncedSites(sites: SiteEntry[]): Site[] {
+  return sites.map((site) => ({
+    id: String(site._id),
+    name: site.name,
+  }));
+}
+
+export function buildSyncedTeams(
+  teams: TeamEntry[],
+  memberships: MembershipDirectoryEntry[],
+): Team[] {
+  const membershipMap = new Map(memberships.map((entry) => [String(entry.membership._id), entry]));
+
+  return teams
+    .map((team) => {
+      const leadEntry = team.subadminMembershipId
+        ? membershipMap.get(String(team.subadminMembershipId))
+        : undefined;
+
+      if (!leadEntry || leadEntry.membership.role !== 'subadmin') {
+        return null;
+      }
+
+      const lead: Employee = {
+        id: String(leadEntry.user._id),
+        name: leadEntry.user.name,
+        role: 'subadmin',
+        teamId: String(team._id),
+        teamName: team.name,
+      };
+
+      const members: Employee[] = memberships
+        .filter(
+          (entry) =>
+            entry.membership.role === 'employee' &&
+            entry.membership.teamIds.map(String).includes(String(team._id)),
+        )
+        .map((entry) => ({
+          id: String(entry.user._id),
+          name: entry.user.name,
+          role: 'employee' as const,
+          teamId: String(team._id),
+          teamName: team.name,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      return {
+        id: String(team._id),
+        name: team.name,
+        color: team.color || '#6b7280',
+        lead,
+        members,
+      };
+    })
+    .filter((team): team is Team => Boolean(team))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
