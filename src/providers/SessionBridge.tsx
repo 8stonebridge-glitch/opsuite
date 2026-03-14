@@ -113,6 +113,19 @@ export function SessionBridge() {
     }
 
     if (organizations.length === 0) {
+      // User is authenticated but has no organization yet — sign them in
+      // locally so they leave the loading screen and can be routed to
+      // onboarding / org creation.
+      if (!state.isAuthenticated) {
+        dispatch({
+          type: 'SYNC_EXTERNAL_OWNER',
+          authUserId: userId,
+          name: fullName || viewer.user.name || 'Owner',
+          email,
+          workspaces: [],
+          activeWorkspaceId: '',
+        });
+      }
       return;
     }
 
@@ -155,6 +168,7 @@ export function SessionBridge() {
     isLoaded,
     isSignedIn,
     organizations,
+    state.isAuthenticated,
     userId,
     viewer,
   ]);
