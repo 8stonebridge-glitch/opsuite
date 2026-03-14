@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createAuthClient } from 'better-auth/react';
 import { expoClient } from '@better-auth/expo/client';
@@ -19,14 +20,19 @@ export const emailVerificationCallbackUrl = authBaseUrl
   ? `${authBaseUrl.replace(/\/$/, '')}/email-confirmed`
   : 'http://localhost/email-confirmed';
 
+const authPlugins: [ReturnType<typeof convexClient>] | [ReturnType<typeof convexClient>, ReturnType<typeof expoClient>] =
+  Platform.OS === 'web'
+    ? [convexClient()]
+    : [
+        convexClient(),
+        expoClient({
+          scheme: 'taskhub',
+          storagePrefix: 'taskhub',
+          storage: SecureStore,
+        }),
+      ];
+
 export const authClient = createAuthClient({
   baseURL: authBaseUrl || 'http://localhost',
-  plugins: [
-    convexClient(),
-    expoClient({
-      scheme: 'taskhub',
-      storagePrefix: 'taskhub',
-      storage: SecureStore,
-    }),
-  ],
+  plugins: authPlugins,
 });
