@@ -298,37 +298,7 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
-          {backendAuth.isSignedIn ? (
-            <View className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <Text className="text-sm font-semibold text-amber-900 mb-1">
-                You’re already signed in
-              </Text>
-              <Text className="text-sm leading-6 text-amber-800">
-                There is already an active session on this device. We&apos;re reconnecting it automatically now. If that does not finish, you can continue manually or clear it and sign in again.
-              </Text>
-              <View className="mt-4 gap-3">
-                <Button
-                  title={
-                    isRestoringWorkspace
-                      ? 'Restoring workspace...'
-                      : isSubmitting
-                        ? 'Restoring session...'
-                        : 'Continue with current session'
-                  }
-                  onPress={handleUseCurrentSession}
-                  disabled={isSubmitting || isClearingSession}
-                  className="w-full"
-                />
-                <Button
-                  title={isClearingSession ? 'Clearing session...' : 'Sign out current session'}
-                  onPress={handleClearCurrentSession}
-                  disabled={isClearingSession}
-                  variant="outline"
-                  className="w-full"
-                />
-              </View>
-            </View>
-          ) : null}
+{null}
 
           <View className="gap-4 mb-6">
             <Input
