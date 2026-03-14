@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,7 +26,6 @@ export default function SignInScreen() {
   const [isClearingSession, setIsClearingSession] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [isRestoringWorkspace, setIsRestoringWorkspace] = useState(false);
-  const hasAutoRestoreAttempted = useRef(false);
 
   const normalizedEmail = email.trim().toLowerCase();
   const isDemoAccount = normalizedEmail === 'owner@opsuite.demo';
@@ -226,33 +225,6 @@ export default function SignInScreen() {
     }
   };
 
-  useEffect(() => {
-    if (state.isAuthenticated) {
-      hasAutoRestoreAttempted.current = false;
-      return;
-    }
-
-    if (!backendAuth.isSignedIn || !backendAuth.userId || !backendAuth.email) {
-      hasAutoRestoreAttempted.current = false;
-      return;
-    }
-
-    if (hasAutoRestoreAttempted.current || isSubmitting || isClearingSession || isRestoringWorkspace) {
-      return;
-    }
-
-    hasAutoRestoreAttempted.current = true;
-    void handleUseCurrentSession();
-  }, [
-    backendAuth.email,
-    backendAuth.isSignedIn,
-    backendAuth.userId,
-    isClearingSession,
-    isRestoringWorkspace,
-    isSubmitting,
-    state.isAuthenticated,
-  ]);
-
   return (
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
@@ -343,18 +315,7 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
-          {isRestoringWorkspace ? (
-            <View className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-4">
-              <Text className="text-sm font-semibold text-sky-900 mb-1">
-                Restoring your workspace
-              </Text>
-              <Text className="text-sm leading-6 text-sky-800">
-                Your sign-in worked. We&apos;re finishing the connection to your organization data before opening the app.
-              </Text>
-            </View>
-          ) : null}
-
-          {!backendAuth.isSignedIn && needsEmailVerification ? (
+{!backendAuth.isSignedIn && needsEmailVerification ? (
             <Button
               title={isResendingVerification ? 'Resending email...' : 'Resend verification email'}
               onPress={handleResendVerification}
@@ -365,7 +326,7 @@ export default function SignInScreen() {
           ) : null}
 
           <Button
-            title={isRestoringWorkspace ? 'Restoring workspace...' : isSubmitting ? 'Signing in...' : 'Sign In'}
+            title={isSubmitting ? 'Signing in...' : 'Sign In'}
             onPress={handleSignIn}
             disabled={isSubmitting}
             className="w-full"
