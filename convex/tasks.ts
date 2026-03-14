@@ -343,9 +343,9 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const { organizationId, membership } = await requireActiveOrganizationMembership(ctx);
 
-    if (membership.role === "employee") {
-      throw new Error("Employees cannot assign tasks");
-    }
+    // Employees can submit tasks (go to Pending Approval) but cannot
+    // assign to others or pick accountable leads outside their scope.
+    const isEmployeeSubmission = membership.role === "employee";
 
     if (args.siteId) {
       const site = await ctx.db.get(args.siteId);
@@ -372,6 +372,11 @@ export const create = mutation({
 
     if (membership.role === "subadmin" && accountableLead._id !== membership._id) {
       throw new Error("Subadmins can only create tasks under their own lead scope");
+    }
+
+    // Employees cannot assign tasks to others
+    if (isEmployeeSubmission && args.assignedToMembershipId && args.assignedToMembershipId !== membership._id) {
+      throw new Error("Employees cannot assign tasks to other people");
     }
 
     let assignedMembership = null;
@@ -403,6 +408,9 @@ export const create = mutation({
         ? now
         : undefined;
 
+    // Employee-submitted tasks require approval; manager-created tasks are ready to work
+    const initialStatus = isEmployeeSubmission ? "Pending Approval" : "Open";
+
     const taskId = await ctx.db.insert("tasks", {
       organizationId,
       siteId: args.siteId,
@@ -410,7 +418,7 @@ export const create = mutation({
       title: args.title.trim(),
       description: args.description?.trim() || undefined,
       priority: args.priority,
-      status: "Pending Approval",
+      status: initialStatus,
       createdByMembershipId: membership._id,
       accountableLeadMembershipId: args.accountableLeadMembershipId,
       assignedToMembershipId: args.assignedToMembershipId,
@@ -427,15 +435,20 @@ export const create = mutation({
     const actorUser = await ctx.db.get(membership.userId);
     const assigneeUser = assignedMembership ? await ctx.db.get(assignedMembership.userId) : null;
 
-    const assignmentMessage = assigneeUser
-      ? `Task assigned to ${assigneeUser.name} by ${actorUser?.name || "Manager"}${args.dueDate ? `. Due date: ${args.dueDate}.` : "."}`
-      : `Task created by ${actorUser?.name || "Manager"}.`;
+    let assignmentMessage: string;
+    if (isEmployeeSubmission) {
+      assignmentMessage = `Task submitted by ${actorUser?.name || "Employee"}. Awaiting approval.${args.dueDate ? ` Due date: ${args.dueDate}.` : ""}`;
+    } else if (assigneeUser) {
+      assignmentMessage = `Task assigned to ${assigneeUser.name} by ${actorUser?.name || "Manager"}${args.dueDate ? `. Due date: ${args.dueDate}.` : "."}`;
+    } else {
+      assignmentMessage = `Task created by ${actorUser?.name || "Manager"}.`;
+    }
 
     await ctx.db.insert("taskAudits", {
       organizationId,
       taskId,
       actorMembershipId: membership._id,
-      type: "Assignment",
+      type: isEmployeeSubmission ? "Submission" : "Assignment",
       message: assignmentMessage,
       createdAt: now,
     });
