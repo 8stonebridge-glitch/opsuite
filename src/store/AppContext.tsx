@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useMemo, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 import type {
   Task,
   AuditEntry,
@@ -393,15 +394,79 @@ const DEMO_ACCOUNT: Account = {
   isDemo: true,
 };
 
-const initialInternalState: InternalState = {
-  accounts: [DEMO_ACCOUNT],
-  currentAccountId: null,
-  workspaces: [buildApexWorkspace(), buildSkylineWorkspace(), buildHarborWorkspace()],
-  activeWorkspaceId: 'ws-apex',
-  role: 'admin',
-  userId: null,
-  onboardingComplete: true,
-};
+// ── localStorage persistence for multi-tab support ──────────────────────
+
+const AUTH_HINT_KEY = 'opsuite_auth_hint';
+
+interface AuthHint {
+  currentAccountId: string;
+  activeWorkspaceId: string;
+  role: Role;
+  accountName: string;
+  accountEmail: string;
+  isDemo: boolean;
+}
+
+function saveAuthHint(hint: AuthHint): void {
+  if (Platform.OS !== 'web') return;
+  try {
+    localStorage.setItem(AUTH_HINT_KEY, JSON.stringify(hint));
+  } catch { /* quota or private browsing */ }
+}
+
+function clearAuthHint(): void {
+  if (Platform.OS !== 'web') return;
+  try {
+    localStorage.removeItem(AUTH_HINT_KEY);
+  } catch { /* ignore */ }
+}
+
+function loadAuthHint(): AuthHint | null {
+  if (Platform.OS !== 'web') return null;
+  try {
+    const raw = localStorage.getItem(AUTH_HINT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AuthHint;
+  } catch {
+    return null;
+  }
+}
+
+function buildInitialInternalState(): InternalState {
+  const base: InternalState = {
+    accounts: [DEMO_ACCOUNT],
+    currentAccountId: null,
+    workspaces: [buildApexWorkspace(), buildSkylineWorkspace(), buildHarborWorkspace()],
+    activeWorkspaceId: 'ws-apex',
+    role: 'admin',
+    userId: null,
+    onboardingComplete: true,
+  };
+
+  // Hydrate from localStorage so new tabs start with correct auth state
+  const hint = loadAuthHint();
+  if (hint && !hint.isDemo) {
+    const placeholderAccount: Account = {
+      id: hint.currentAccountId,
+      name: hint.accountName,
+      email: hint.accountEmail,
+      passwordHash: '',
+      isDemo: false,
+    };
+    return {
+      ...base,
+      accounts: [...base.accounts, placeholderAccount],
+      currentAccountId: hint.currentAccountId,
+      activeWorkspaceId: hint.activeWorkspaceId,
+      role: hint.role,
+      onboardingComplete: true,
+    };
+  }
+
+  return base;
+}
+
+const initialInternalState: InternalState = buildInitialInternalState();
 
 // ── Actions ────────────────────────────────────────────────────────────
 
@@ -638,6 +703,17 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
   if (action.type === 'SWITCH_ORGANIZATION') {
     const exists = internal.workspaces.some((w) => w.id === action.workspaceId);
     if (!exists) return internal;
+    const currentAccount = internal.accounts.find((a) => a.id === internal.currentAccountId);
+    if (currentAccount && !currentAccount.isDemo) {
+      saveAuthHint({
+        currentAccountId: currentAccount.id,
+        activeWorkspaceId: action.workspaceId,
+        role: 'admin',
+        accountName: currentAccount.name,
+        accountEmail: currentAccount.email,
+        isDemo: false,
+      });
+    }
     return {
       ...internal,
       activeWorkspaceId: action.workspaceId,
@@ -650,6 +726,16 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
     const account = internal.accounts.find((a) => a.id === action.accountId);
     if (!account) return internal;
     const ownedWs = internal.workspaces.filter((w) => w.ownerId === account.id);
+    if (!account.isDemo) {
+      saveAuthHint({
+        currentAccountId: account.id,
+        activeWorkspaceId: ownedWs[0]?.id || internal.activeWorkspaceId,
+        role: 'admin',
+        accountName: account.name,
+        accountEmail: account.email,
+        isDemo: false,
+      });
+    }
     return {
       ...internal,
       currentAccountId: account.id,
@@ -661,6 +747,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
   }
 
   if (action.type === 'SIGN_OUT') {
+    clearAuthHint();
     return {
       ...internal,
       currentAccountId: null,
@@ -784,6 +871,15 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       action.activeWorkspaceId ||
       syncedWorkspaces[0]?.id ||
       internal.activeWorkspaceId;
+
+    saveAuthHint({
+      currentAccountId: accountId,
+      activeWorkspaceId,
+      role: 'admin',
+      accountName: nextAccount.name,
+      accountEmail: nextAccount.email,
+      isDemo: false,
+    });
 
     return {
       ...internal,

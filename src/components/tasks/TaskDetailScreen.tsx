@@ -60,6 +60,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const [error, setError] = useState('');
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
   const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
+  const [showVerifyConfirm, setShowVerifyConfirm] = useState(false);
 
   if (isBackendMode && backendDetail === undefined) {
     return (
@@ -429,23 +430,38 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
             {canApprove && (
               <Button title={isSubmittingStatus ? 'Saving...' : 'Approve Task'} onPress={handleApprove} color={color} disabled={isSubmittingStatus} />
             )}
-            {canVerify && (
-              <Button title={isSubmittingStatus ? 'Saving...' : 'Verify & Close'} onPress={() => {
-                if (Platform.OS === 'web') {
-                  if (window.confirm('Are you sure you want to verify and close this task?')) {
-                    handleVerify();
-                  }
-                } else {
-                  Alert.alert(
-                    'Verify & Close?',
-                    'Are you sure you want to verify and close this task?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Verify', onPress: handleVerify },
-                    ]
-                  );
-                }
-              }} color={color} disabled={isSubmittingStatus} />
+            {canVerify && !showVerifyConfirm && (
+              <Button
+                title="Verify & Close"
+                onPress={() => setShowVerifyConfirm(true)}
+                color={color}
+                disabled={isSubmittingStatus}
+              />
+            )}
+            {showVerifyConfirm && (
+              <Card>
+                <Text className="text-sm font-semibold text-gray-900 mb-2">
+                  Are you sure you want to verify and close this task?
+                </Text>
+                <View className="flex-row gap-2">
+                  <Button
+                    title="Cancel"
+                    onPress={() => setShowVerifyConfirm(false)}
+                    variant="outline"
+                    size="md"
+                    className="flex-1"
+                    disabled={isSubmittingStatus}
+                  />
+                  <Button
+                    title={isSubmittingStatus ? 'Saving...' : 'Verify'}
+                    onPress={handleVerify}
+                    color={color}
+                    size="md"
+                    className="flex-1"
+                    disabled={isSubmittingStatus}
+                  />
+                </View>
+              </Card>
             )}
             {canReject && !showReject && (
               <Button title="Request Rework" onPress={() => setShowReject(true)} variant="danger" disabled={isSubmittingStatus} />

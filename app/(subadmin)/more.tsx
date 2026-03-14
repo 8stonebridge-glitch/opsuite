@@ -59,27 +59,22 @@ export default function SubAdminMoreScreen() {
             title="Sign Out"
             variant="outline"
             onPress={() => {
-              const doSignOut = async () => {
-                try {
-                  if (!state.isDemo) {
-                    await authClient.signOut();
-                  }
-                } catch (e) {
-                  console.warn('Sign-out error (continuing):', e);
-                } finally {
-                  dispatch({ type: 'SIGN_OUT' });
-                  router.replace('/(auth)/sign-in');
+              const doSignOut = () => {
+                dispatch({ type: 'SIGN_OUT' });
+                router.replace('/(auth)/sign-in');
+                if (!state.isDemo) {
+                  authClient.signOut().catch((e) => console.warn('Sign-out error:', e));
                 }
               };
 
               if (Platform.OS === 'web') {
                 if (window.confirm('Are you sure you want to sign out?')) {
-                  void doSignOut();
+                  doSignOut();
                 }
               } else {
                 Alert.alert('Sign Out?', 'Are you sure you want to sign out?', [
                   { text: 'Cancel' },
-                  { text: 'Sign Out', style: 'destructive', onPress: () => void doSignOut() },
+                  { text: 'Sign Out', style: 'destructive', onPress: doSignOut },
                 ]);
               }
             }}

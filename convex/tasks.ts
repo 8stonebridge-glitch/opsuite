@@ -385,11 +385,13 @@ export const create = mutation({
       }
     }
 
-    if (args.dueDate) {
-      const today = new Date().toISOString().split("T")[0];
-      if (args.dueDate < today!) {
-        throw new Error("Due date cannot be in the past");
-      }
+    if (!args.dueDate) {
+      throw new Error("Due date is required");
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (args.dueDate < today!) {
+      throw new Error("Due date cannot be in the past");
     }
 
     const now = new Date().toISOString();
@@ -743,6 +745,7 @@ export const verify = mutation({
     await insertTaskAudit(ctx, {
       organizationId,
       taskId: task._id,
+      actorMembershipId: membership._id,
       type: "Verified",
       message: `✓ Verified & closed by ${user.name}.${completedLate ? " ⚠ Completed past due date." : ""}`,
       createdAt: now,
