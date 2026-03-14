@@ -77,24 +77,46 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
       async sendVerificationEmail({ user, url }) {
         const firstName = user.name?.trim().split(/\s+/)[0] || 'there';
         const safeUrl = url.replace(/"/g, '&quot;');
-        const text = `Hi ${firstName}, verify your TaskHub email by opening this link: ${url}`;
+        const text = [
+          `Hi ${firstName},`,
+          '',
+          'Confirm your email to finish setting up your OpSuite workspace.',
+          '',
+          `Confirm email: ${url}`,
+          '',
+          'If you did not create an OpSuite account, you can safely ignore this message.',
+        ].join('\n');
         const html = `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; line-height: 1.6;">
-            <p>Hi ${firstName},</p>
-            <p>Confirm your email to finish setting up your TaskHub workspace.</p>
-            <p>
-              <a href="${safeUrl}" style="display: inline-block; background: #059669; color: #ffffff; padding: 12px 18px; border-radius: 10px; text-decoration: none; font-weight: 600;">
-                Confirm email
-              </a>
-            </p>
-            <p>If the button does not work, copy and paste this link into your browser:</p>
-            <p>${safeUrl}</p>
+          <div style="margin:0; padding:32px 20px; background:#f3f4f6;">
+            <div style="max-width:560px; margin:0 auto; background:#ffffff; border-radius:20px; padding:32px 28px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#111827; line-height:1.6; border:1px solid #e5e7eb;">
+              <div style="margin-bottom:24px;">
+                <div style="width:56px; height:56px; border-radius:18px; background:#059669; color:#ffffff; font-size:28px; line-height:56px; text-align:center;">&#128188;</div>
+              </div>
+              <h1 style="margin:0 0 8px; font-size:28px; line-height:1.2; color:#111827;">Confirm your email</h1>
+              <p style="margin:0 0 20px; font-size:16px; color:#4b5563;">Hi ${firstName},</p>
+              <p style="margin:0 0 24px; font-size:16px; color:#374151;">
+                Finish setting up your OpSuite workspace by confirming the email address you used to sign up.
+              </p>
+              <p style="margin:0 0 28px;">
+                <a href="${safeUrl}" style="display:inline-block; background:#059669; color:#ffffff; padding:14px 20px; border-radius:12px; text-decoration:none; font-weight:700; font-size:15px;">
+                  Confirm email
+                </a>
+              </p>
+              <div style="margin:0 0 24px; padding:16px; border-radius:14px; background:#f9fafb; border:1px solid #e5e7eb;">
+                <p style="margin:0 0 8px; font-size:13px; font-weight:600; color:#111827;">Having trouble with the button?</p>
+                <p style="margin:0 0 10px; font-size:13px; color:#6b7280;">Open this link in your browser instead:</p>
+                <p style="margin:0; font-size:13px; word-break:break-all; color:#059669;">${safeUrl}</p>
+              </div>
+              <p style="margin:0; font-size:13px; color:#6b7280;">
+                If you did not create an OpSuite account, you can safely ignore this message.
+              </p>
+            </div>
           </div>
         `;
 
         await sendEmailViaResend({
           to: user.email,
-          subject: 'Confirm your TaskHub email',
+          subject: 'Confirm your email for OpSuite',
           html,
           text,
         });
