@@ -6,9 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
-import { AuthConvexProvider, isBackendEnabled } from '../src/lib/auth-convex-provider';
 import { AppProvider } from '../src/store/AppContext';
-import { ConvexAppProvider } from '../src/store/ConvexAppProvider';
 import { InboxProvider } from '../src/components/inbox/InboxProvider';
 import { InboxSheet } from '../src/components/inbox/InboxSheet';
 import { BackendProviders } from '../src/providers/BackendProviders';
@@ -16,18 +14,6 @@ import { ClerkSessionBridge } from '../src/providers/ClerkSessionBridge';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
-}
-
-/**
- * Picks the right data provider:
- * - Backend enabled (Clerk + Convex keys set) → ConvexAppProvider
- * - Otherwise → local AppProvider (demo/dev mode)
- */
-function DataProvider({ children }: { children: React.ReactNode }) {
-  if (isBackendEnabled) {
-    return <ConvexAppProvider>{children}</ConvexAppProvider>;
-  }
-  return <AppProvider>{children}</AppProvider>;
 }
 
 export default function RootLayout() {

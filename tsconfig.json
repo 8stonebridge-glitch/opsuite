@@ -9,9 +9,8 @@
   },
   "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"],
   "exclude": [
-    "convex/*.ts",
-    "convex/shared.ts",
-    "convex/helpers.ts",
+    "tests",
+    "playwright.config.ts",
     "convex/auth.config.ts"
   ]
 }
