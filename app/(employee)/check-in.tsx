@@ -2,6 +2,9 @@ import { useState, useMemo, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
 import {
   useIndustryColor,
@@ -23,16 +26,32 @@ import {
   getMonthDays,
 } from '../../src/utils/checkin-helpers';
 import type { CheckIn } from '../../src/types';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
 
 type StatsTab = 'checked' | 'missed' | 'rate' | 'streaks';
 
 export default function EmployeeCheckInScreen() {
   const { state, dispatch } = useApp();
+  const router = useRouter();
+  const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const curName = useCurrentName();
   const myCheckIns = useMyCheckIns();
   const myTasks = useScopedTasks();
   const today = getToday();
+  const isBackendMode = !state.isDemo && authEnabled;
+  const backendTaskLists = useQuery(
+    api.tasks.listForCurrentScope,
+    isBackendMode ? {} : 'skip'
+  );
+  const backendHandoff = useQuery(
+    api.handoffs.myProgress,
+    isBackendMode ? { date: today } : 'skip'
+  );
+  const completeHandoff = useMutation(api.handoffs.completeForToday);
+  const backendOpenTasks = (backendTaskLists?.scopedTasks || []).filter(
+    (task) => task.status === 'Open' || task.status === 'In Progress'
+  );
 
   // Month navigation
   const now = new Date();
@@ -50,9 +69,19 @@ export default function EmployeeCheckInScreen() {
 
   const weekDays = getCurrentWeekDays(today);
 
-  const openTasks = myTasks.filter((t) => t.status === 'Open' || t.status === 'In Progress');
+  const openTasks = isBackendMode ? backendOpenTasks : myTasks.filter((t) => t.status === 'Open' || t.status === 'In Progress');
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
+    if (isBackendMode) {
+      if (!backendHandoff?.canComplete) {
+        router.push('/(employee)/my-day');
+        return;
+      }
+
+      await completeHandoff({ date: today });
+      return;
+    }
+
     const nowTime = new Date();
     const time = `${String(nowTime.getHours()).padStart(2, '0')}:${String(nowTime.getMinutes()).padStart(2, '0')}`;
     const type = openTasks.length > 0 ? 'Tasks Logged' : 'No Tasks';
@@ -146,7 +175,16 @@ export default function EmployeeCheckInScreen() {
                     ? `You have ${openTasks.length} open task${openTasks.length > 1 ? 's' : ''}`
                     : 'No active tasks today'}
                 </Text>
-                <Button title="Check In Now" onPress={handleCheckIn} color={color} className="w-full" />
+                <Button
+                  title={
+                    isBackendMode && backendHandoff && !backendHandoff.canComplete
+                      ? 'Open My Day'
+                      : 'Check In Now'
+                  }
+                  onPress={() => void handleCheckIn()}
+                  color={color}
+                  className="w-full"
+                />
               </View>
             </Card>
           ) : (

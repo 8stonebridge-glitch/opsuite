@@ -1,7 +1,10 @@
+import { useMemo, useState } from 'react';
 import { ScrollView, View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
 import {
   useMyDayData,
@@ -19,22 +22,74 @@ import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 import { TaskPreviewSection } from '../../src/components/overview/TaskPreviewSection';
 import { PerformanceCard } from '../../src/components/performance/PerformanceCard';
 import { Card } from '../../src/components/ui/Card';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
 
 export default function EmployeeMyDayScreen() {
   const { state, dispatch } = useApp();
   const router = useRouter();
+  const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const name = useCurrentName();
-  const { dueToday, overdue, inProgress } = useMyDayData();
+  const localMyDay = useMyDayData();
   const myPerf = useMyPerformance();
-  const handoff = useHandoffProgress();
-  const handoffDone = useHasCompletedHandoffToday();
+  const localHandoff = useHandoffProgress();
+  const localHandoffDone = useHasCompletedHandoffToday();
   const isUnavailable = useIsProtectedUnavailableToday();
 
   const today = getToday();
+  const isBackendMode = !state.isDemo && authEnabled;
+  const backendTaskLists = useQuery(
+    api.tasks.listForCurrentScope,
+    isBackendMode ? {} : 'skip'
+  );
+  const backendHandoff = useQuery(
+    api.handoffs.myProgress,
+    isBackendMode ? { date: today } : 'skip'
+  );
+  const markNoChange = useMutation(api.tasks.markNoChange);
+  const completeHandoff = useMutation(api.handoffs.completeForToday);
+  const [isSubmittingHandoff, setIsSubmittingHandoff] = useState(false);
+  const [isSubmittingNoChangeId, setIsSubmittingNoChangeId] = useState<string | null>(null);
+
+  const backendTasks = backendTaskLists?.scopedTasks || [];
+  const { dueToday, overdue, inProgress } = useMemo(() => {
+    if (!isBackendMode) {
+      return localMyDay;
+    }
+
+    return {
+      dueToday: backendTasks.filter(
+        (task) => task.due === today && (task.status === 'Open' || task.status === 'In Progress')
+      ),
+      overdue: backendTasks.filter((task) => task.due && task.due < today && (task.status === 'Open' || task.status === 'In Progress')),
+      inProgress: backendTasks.filter(
+        (task) => task.status === 'In Progress' && (!task.due || task.due >= today)
+      ),
+      checkedInToday: Boolean(backendHandoff?.handoffDone),
+    };
+  }, [backendHandoff?.handoffDone, backendTasks, isBackendMode, localMyDay, today]);
+
+  const handoff = isBackendMode
+    ? {
+        total: backendHandoff?.total || 0,
+        engaged: backendHandoff?.engaged || 0,
+        remaining: backendHandoff?.remainingTasks || [],
+      }
+    : localHandoff;
+  const handoffDone = isBackendMode ? Boolean(backendHandoff?.handoffDone) : localHandoffDone;
 
   // Mark a task as "No Change" for handoff engagement
-  const handleNoChange = (taskId: string) => {
+  const handleNoChange = async (taskId: string) => {
+    if (isBackendMode) {
+      setIsSubmittingNoChangeId(taskId);
+      try {
+        await markNoChange({ taskId: taskId as never });
+      } finally {
+        setIsSubmittingNoChangeId(null);
+      }
+      return;
+    }
+
     dispatch({
       type: 'ADD_AUDIT',
       entry: {
@@ -55,7 +110,17 @@ export default function EmployeeMyDayScreen() {
   };
 
   // Complete the daily handoff
-  const handleCompleteHandoff = () => {
+  const handleCompleteHandoff = async () => {
+    if (isBackendMode) {
+      setIsSubmittingHandoff(true);
+      try {
+        await completeHandoff({ date: today });
+      } finally {
+        setIsSubmittingHandoff(false);
+      }
+      return;
+    }
+
     const summary = buildHandoffSummary(state.tasks, state.userId || '', state.audit);
     dispatch({ type: 'ADD_HANDOFF', handoff: summary });
 
@@ -95,8 +160,8 @@ export default function EmployeeMyDayScreen() {
   };
 
   // Handle "No tasks" quick handoff
-  const handleNoTasksHandoff = () => {
-    handleCompleteHandoff();
+  const handleNoTasksHandoff = async () => {
+    await handleCompleteHandoff();
   };
 
   const goToTask = (id: string) => {
@@ -142,6 +207,19 @@ export default function EmployeeMyDayScreen() {
   const isEmpty = dueToday.length === 0 && overdue.length === 0 && inProgress.length === 0;
 
   const allEngaged = handoff.remaining.length === 0 && handoff.total > 0;
+  const engagedTaskIds = isBackendMode ? backendHandoff?.engagedTaskIds || [] : [];
+  const engagedTasks = isBackendMode
+    ? backendTasks.filter(
+        (task) =>
+          engagedTaskIds.includes(task.id) &&
+          (task.status === 'Open' || task.status === 'In Progress')
+      )
+    : state.tasks.filter(
+        (task) =>
+          task.assigneeId === state.userId &&
+          (task.status === 'Open' || task.status === 'In Progress') &&
+          !handoff.remaining.some((remainingTask) => remainingTask.id === task.id)
+      );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
@@ -153,6 +231,13 @@ export default function EmployeeMyDayScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 pt-4 gap-4">
+          {isBackendMode && (!backendTaskLists || !backendHandoff) ? (
+            <Card className="flex-row items-center gap-3">
+              <Ionicons name="sync" size={18} color={color} />
+              <Text className="text-sm text-gray-600">Loading your handoff...</Text>
+            </Card>
+          ) : null}
+
           {/* Handoff Section */}
           {isUnavailable ? (
             // Protected unavailable — no handoff required
@@ -255,24 +340,19 @@ export default function EmployeeMyDayScreen() {
                     <Text className="text-[10px] font-semibold text-blue-600">Update</Text>
                   </Pressable>
                   <Pressable
-                    onPress={() => handleNoChange(task.id)}
+                    onPress={() => void handleNoChange(task.id)}
                     className="px-2.5 py-1.5 bg-gray-100 rounded-lg"
                   >
-                    <Text className="text-[10px] font-semibold text-gray-500">No change</Text>
+                    <Text className="text-[10px] font-semibold text-gray-500">
+                      {isSubmittingNoChangeId === task.id ? 'Saving...' : 'No change'}
+                    </Text>
                   </Pressable>
                 </View>
               ))}
 
               {/* Engaged tasks */}
-              {handoff.total - handoff.remaining.length > 0 &&
-                state.tasks
-                  .filter(
-                    (t) =>
-                      t.assigneeId === state.userId &&
-                      (t.status === 'Open' || t.status === 'In Progress') &&
-                      !handoff.remaining.some((r) => r.id === t.id)
-                  )
-                  .map((task) => (
+              {engagedTasks.length > 0 &&
+                engagedTasks.map((task) => (
                     <View
                       key={task.id}
                       className="flex-row items-center gap-3 py-2.5 border-b border-gray-50"
@@ -289,18 +369,18 @@ export default function EmployeeMyDayScreen() {
 
               {/* Complete Handoff button */}
               <Pressable
-                onPress={handleCompleteHandoff}
-                disabled={!allEngaged}
+                onPress={() => void handleCompleteHandoff()}
+                disabled={!allEngaged || isSubmittingHandoff}
                 className="mt-4 py-3 rounded-xl items-center"
                 style={{
-                  backgroundColor: allEngaged ? color : '#e5e7eb',
+                  backgroundColor: allEngaged && !isSubmittingHandoff ? color : '#e5e7eb',
                 }}
               >
                 <Text
                   className="text-sm font-semibold"
-                  style={{ color: allEngaged ? '#fff' : '#9ca3af' }}
+                  style={{ color: allEngaged && !isSubmittingHandoff ? '#fff' : '#9ca3af' }}
                 >
-                  Complete Handoff
+                  {isSubmittingHandoff ? 'Completing...' : 'Complete Handoff'}
                 </Text>
               </Pressable>
             </Card>
@@ -320,7 +400,7 @@ export default function EmployeeMyDayScreen() {
           )}
 
           {/* My Performance */}
-          {myPerf && (
+          {!isBackendMode && myPerf && (
             <PerformanceCard performance={myPerf} compact color={color} />
           )}
 

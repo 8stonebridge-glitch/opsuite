@@ -505,6 +505,7 @@ export const updateStatus = mutation({
       await insertTaskAudit(ctx, {
         organizationId,
         taskId: task._id,
+        actorMembershipId: membership._id,
         type: "Status",
         message: `▶ Task started on ${today} by ${user.name} (${mapRole(membership.role)}). Status: Open → In Progress.`,
         createdAt: now,
@@ -515,6 +516,7 @@ export const updateStatus = mutation({
       await insertTaskAudit(ctx, {
         organizationId,
         taskId: task._id,
+        actorMembershipId: membership._id,
         type: "Status",
         message: `✓ Task completed on ${today} by ${user.name} (${mapRole(membership.role)}). Awaiting verification.`,
         createdAt: now,
@@ -532,6 +534,43 @@ export const updateStatus = mutation({
         });
       }
     }
+
+    return await ctx.db.get(task._id);
+  },
+});
+
+export const markNoChange = mutation({
+  args: {
+    taskId: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
+
+    if (task.assignedToMembershipId !== membership._id) {
+      throw new Error("Only the current assignee can report no change");
+    }
+
+    if (task.status !== "Open" && task.status !== "In Progress") {
+      throw new Error("No change can only be reported on active tasks");
+    }
+
+    const now = new Date().toISOString();
+    const today = now.split("T")[0] || now;
+
+    await ctx.db.patch(task._id, {
+      lastNoChangeAt: today,
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    await insertTaskAudit(ctx, {
+      organizationId,
+      taskId: task._id,
+      actorMembershipId: membership._id,
+      type: "No Change",
+      message: `No change reported by ${user.name}.`,
+      createdAt: now,
+    });
 
     return await ctx.db.get(task._id);
   },

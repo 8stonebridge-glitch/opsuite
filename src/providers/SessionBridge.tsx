@@ -41,6 +41,10 @@ export function SessionBridge() {
     api.teams.listForActiveOrganization,
     authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
+  const handoffFeed = useQuery(
+    api.handoffs.listForCurrentScope,
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
+  );
 
   const lastSyncedUserId = useRef<string | null>(null);
   const lastAppliedSnapshot = useRef<string | null>(null);
@@ -178,6 +182,30 @@ export function SessionBridge() {
     organizations,
     sites,
     teams,
+    viewer,
+  ]);
+
+  useEffect(() => {
+    if (!authEnabled || !isLoaded || !isSignedIn || convexAuthLoading || !convexAuthenticated || !viewer?.user || handoffFeed === undefined) {
+      return;
+    }
+
+    dispatch({
+      type: 'SET_HANDOFFS',
+      handoffs: handoffFeed.handoffs,
+    });
+    dispatch({
+      type: 'SET_CHECKINS',
+      checkIns: handoffFeed.checkIns,
+    });
+  }, [
+    authEnabled,
+    convexAuthenticated,
+    convexAuthLoading,
+    dispatch,
+    handoffFeed,
+    isLoaded,
+    isSignedIn,
     viewer,
   ]);
 
