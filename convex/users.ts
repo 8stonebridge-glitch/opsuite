@@ -4,6 +4,47 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import { displayNameFromIdentity, emailFromIdentity, requireIdentity, requireCurrentUser } from "./authHelpers";
 import { createOrganizationForOwner } from "./organizations";
 
+/**
+ * On sign-in, verify the user's activeOrganizationId still points to an org
+ * where they have an active membership. If not, reset to their owned org.
+ */
+async function maybeResetActiveOrganization(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  currentActiveOrgId?: Id<"organizations">,
+) {
+  if (!currentActiveOrgId) return;
+
+  // Check if user has an active membership in the current active org
+  const currentMembership = await ctx.db
+    .query("memberships")
+    .withIndex("by_organization_user", (q) =>
+      q.eq("organizationId", currentActiveOrgId).eq("userId", userId),
+    )
+    .unique();
+
+  if (currentMembership && currentMembership.status === "active") {
+    return; // Valid membership, nothing to fix
+  }
+
+  // Current active org is invalid — find an org they own
+  const allMemberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_user_id", (q) => q.eq("userId", userId))
+    .collect();
+
+  const ownedMembership = allMemberships.find(
+    (m) => m.role === "owner_admin" && m.status === "active",
+  );
+
+  const fallbackMembership = ownedMembership || allMemberships.find((m) => m.status === "active");
+
+  await ctx.db.patch(userId, {
+    activeOrganizationId: fallbackMembership?.organizationId,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 async function maybeClaimSignupDraft(
   ctx: MutationCtx,
   userId: Id<"users">,
@@ -83,6 +124,7 @@ export const syncFromAuth = mutation({
         updatedAt: now,
       });
       await maybeClaimSignupDraft(ctx, existing._id, email);
+      await maybeResetActiveOrganization(ctx, existing._id, existing.activeOrganizationId);
       return await ctx.db.get(existing._id);
     }
 

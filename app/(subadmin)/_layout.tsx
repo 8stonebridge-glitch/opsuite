@@ -26,6 +26,11 @@ export default function SubAdminLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
+  // Role guard: only subadmin can access subadmin routes
+  if (state.role !== 'subadmin') {
+    return <Redirect href="/" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

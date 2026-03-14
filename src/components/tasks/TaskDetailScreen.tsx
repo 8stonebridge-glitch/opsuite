@@ -90,7 +90,8 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
     (state.role === 'admin' || state.role === 'subadmin') &&
     task.status === 'Completed';
   const canReject = canVerify;
-  const hasStatusTransitions = getNextStatuses(task.status, state.role).length > 0;
+  const isAssignee = task.assigneeId === state.userId;
+  const hasStatusTransitions = getNextStatuses(task.status, state.role, isAssignee).length > 0;
   // Show Update Status button unless dedicated buttons (approve/verify/reject) already cover it
   const canUpdate = hasStatusTransitions && !canApprove && !canVerify;
   const showDelegateBtn = isBackendMode

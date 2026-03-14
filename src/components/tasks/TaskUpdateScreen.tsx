@@ -57,7 +57,8 @@ export function TaskUpdateScreen() {
     );
   }
 
-  const nextStatuses = getNextStatuses(task.status, state.role);
+  const isAssignee = task.assigneeId === state.userId;
+  const nextStatuses = getNextStatuses(task.status, state.role, isAssignee);
   const newStatus = selectedStatus || (nextStatuses.length === 1 ? nextStatuses[0] : '');
 
   const handleSubmit = async () => {

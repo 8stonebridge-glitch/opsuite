@@ -4,22 +4,22 @@ import { isProtectedUnavailable } from './availability-helpers';
 
 export function getNextStatuses(
   current: TaskStatus,
-  role: Role
+  role: Role,
+  isAssignee = false
 ): TaskStatus[] {
-  if (role === 'employee') {
+  // Rule 3: Only the assigned person can start or complete a task.
+  // Managers cannot complete on behalf of others.
+  if (isAssignee) {
     if (current === 'Open') return ['In Progress'];
     if (current === 'In Progress') return ['Completed'];
-    return [];
   }
-  // Admin and SubAdmin can manage full lifecycle
+
+  // Admin/subadmin can approve and reopen
   if (role === 'subadmin' || role === 'admin') {
-    if (current === 'Open') return ['In Progress'];
-    if (current === 'In Progress') return ['Completed'];
-    if (current === 'Completed') return ['Verified'];
     if (current === 'Pending Approval') return ['Open'];
     if (current === 'Verified') return ['Open'];
-    return [];
   }
+
   return [];
 }
 

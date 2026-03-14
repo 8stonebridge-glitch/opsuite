@@ -38,6 +38,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(owner_admin)" />
                 <Stack.Screen name="(subadmin)" />
                 <Stack.Screen name="(employee)" />
+                <Stack.Screen name="+not-found" />
               </Stack>
               <InboxSheet />
             </InboxProvider>

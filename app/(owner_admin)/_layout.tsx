@@ -27,6 +27,11 @@ export default function OwnerAdminLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
+  // Role guard: only admin (owner) can access owner_admin routes
+  if (state.role !== 'admin') {
+    return <Redirect href="/" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

@@ -54,8 +54,11 @@ export function SessionBridge() {
     authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
 
+  const setActiveOrganization = useMutation(api.users.setActiveOrganization);
+
   const lastSyncedUserId = useRef<string | null>(null);
   const lastAppliedSnapshot = useRef<string | null>(null);
+  const autoSwitchAttempted = useRef(false);
 
   useEffect(() => {
     if (!authEnabled || !isLoaded) {
@@ -65,6 +68,7 @@ export function SessionBridge() {
     if (!isSignedIn || !userId) {
       lastSyncedUserId.current = null;
       lastAppliedSnapshot.current = null;
+      autoSwitchAttempted.current = false;
 
       if (state.isAuthenticated && !state.isDemo) {
         dispatch({ type: 'SIGN_OUT' });
@@ -100,6 +104,43 @@ export function SessionBridge() {
     state.isDemo,
     syncFromAuth,
     userId,
+    viewer,
+  ]);
+
+  // Auto-switch: if activeOrganization is null but user has orgs, their
+  // activeOrganizationId is stale — reset to their owned org on the backend.
+  useEffect(() => {
+    if (!authEnabled || !isLoaded || !isSignedIn || convexAuthLoading || !convexAuthenticated || !viewer?.user) {
+      return;
+    }
+    if (organizations === undefined || activeOrganization === undefined) {
+      return;
+    }
+    if (activeOrganization !== null || organizations.length === 0 || autoSwitchAttempted.current) {
+      return;
+    }
+    // activeOrganization is null but user has orgs — pick the owned one
+    const owned = organizations.find(
+      (entry) => entry && entry.membership.role === 'owner_admin',
+    );
+    const fallback = owned || organizations[0];
+    if (fallback?.organization?._id) {
+      autoSwitchAttempted.current = true;
+      void setActiveOrganization({
+        organizationId: fallback.organization._id as any,
+      }).catch(() => {
+        autoSwitchAttempted.current = false;
+      });
+    }
+  }, [
+    activeOrganization,
+    authEnabled,
+    convexAuthenticated,
+    convexAuthLoading,
+    isLoaded,
+    isSignedIn,
+    organizations,
+    setActiveOrganization,
     viewer,
   ]);
 

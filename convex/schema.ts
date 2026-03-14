@@ -19,7 +19,6 @@ const taskStatus = v.union(
   v.literal('Completed'),
   v.literal('Pending Approval'),
   v.literal('Verified'),
-  v.literal('Rejected'),
 );
 
 const priority = v.union(

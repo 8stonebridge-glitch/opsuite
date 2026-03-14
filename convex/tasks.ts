@@ -23,17 +23,18 @@ function canViewTask(task: Doc<"tasks">, membership: Doc<"memberships">) {
 function getAllowedNextStatuses(
   current: Doc<"tasks">["status"],
   role: Doc<"memberships">["role"],
+  isAssignee: boolean,
 ): Doc<"tasks">["status"][] {
-  if (role === "employee") {
+  // Rule 3: Only the assigned person can start or complete a task.
+  // Managers cannot complete on behalf of others.
+  if (isAssignee) {
     if (current === "Open") return ["In Progress"];
     if (current === "In Progress") return ["Completed"];
-    return [];
   }
 
+  // Admin/subadmin can approve and reopen via updateStatus.
+  // Verify and rework use dedicated mutations (verify, requestRework).
   if (role === "subadmin" || role === "owner_admin") {
-    if (current === "Open") return ["In Progress"];
-    if (current === "In Progress") return ["Completed"];
-    if (current === "Completed") return ["Verified"];
     if (current === "Pending Approval") return ["Open"];
     if (current === "Verified") return ["Open"];
   }
@@ -148,7 +149,7 @@ async function hydrateTasks(
       assignee: assigneeUser?.name || accountableLeadUser?.name || creatorUser?.name || "Unassigned",
       assigneeId: assigneeUser ? String(assigneeUser._id) : "",
       teamId: task.teamId ? String(task.teamId) : "",
-      status: task.status === "Rejected" ? "Pending Approval" : task.status,
+      status: task.status,
       assignedBy: creatorUser?.name || "Manager",
       assignedByRole: creatorMembership ? mapRole(creatorMembership.role) : "admin",
       note: task.note,
@@ -409,7 +410,7 @@ export const create = mutation({
       title: args.title.trim(),
       description: args.description?.trim() || undefined,
       priority: args.priority,
-      status: "Open",
+      status: "Pending Approval",
       createdByMembershipId: membership._id,
       accountableLeadMembershipId: args.accountableLeadMembershipId,
       assignedToMembershipId: args.assignedToMembershipId,
@@ -501,7 +502,8 @@ export const updateStatus = mutation({
   },
   handler: async (ctx, args) => {
     const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
-    const nextStatuses = getAllowedNextStatuses(task.status, membership.role);
+    const isAssignee = task.assignedToMembershipId === membership._id;
+    const nextStatuses = getAllowedNextStatuses(task.status, membership.role, isAssignee);
 
     if (!nextStatuses.includes(args.status)) {
       throw new Error("That status transition is not allowed");
@@ -512,6 +514,8 @@ export const updateStatus = mutation({
     const note = args.note?.trim();
     const isStart = args.status === "In Progress" && task.status === "Open";
     const isDone = args.status === "Completed";
+    const isApproval = args.status === "Open" && task.status === "Pending Approval";
+    const isReopen = args.status === "Open" && task.status === "Verified";
 
     await ctx.db.patch(task._id, {
       status: args.status,
@@ -532,6 +536,28 @@ export const updateStatus = mutation({
       });
     }
 
+    if (isApproval) {
+      await insertTaskAudit(ctx, {
+        organizationId,
+        taskId: task._id,
+        actorMembershipId: membership._id,
+        type: "Approval",
+        message: `Approved by ${user.name}. Work may proceed.`,
+        createdAt: now,
+      });
+    }
+
+    if (isReopen) {
+      await insertTaskAudit(ctx, {
+        organizationId,
+        taskId: task._id,
+        actorMembershipId: membership._id,
+        type: "Reopened",
+        message: `Reopened by ${user.name} (${mapRole(membership.role)}).`,
+        createdAt: now,
+      });
+    }
+
     if (isStart) {
       await insertTaskAudit(ctx, {
         organizationId,
@@ -544,27 +570,12 @@ export const updateStatus = mutation({
     }
 
     if (isDone) {
-      const isAssignee = task.assignedToMembershipId === membership._id;
-      let completionMessage: string;
-      if (isAssignee) {
-        completionMessage = `✓ Task completed on ${today} by ${user.name} (${mapRole(membership.role)}). Awaiting verification.`;
-      } else {
-        const assigneeMembership = task.assignedToMembershipId
-          ? await ctx.db.get(task.assignedToMembershipId)
-          : null;
-        const assigneeUser = assigneeMembership
-          ? await ctx.db.get(assigneeMembership.userId)
-          : null;
-        const assigneeName = assigneeUser?.name || "assignee";
-        completionMessage = `✓ Task marked complete on ${today} by ${user.name} (${mapRole(membership.role)}) on behalf of ${assigneeName}. Awaiting verification.`;
-      }
-
       await insertTaskAudit(ctx, {
         organizationId,
         taskId: task._id,
         actorMembershipId: membership._id,
         type: "Status",
-        message: completionMessage,
+        message: `✓ Task completed on ${today} by ${user.name} (${mapRole(membership.role)}). Awaiting verification.`,
         createdAt: now,
       });
 
@@ -630,15 +641,15 @@ export const delegate = mutation({
   handler: async (ctx, args) => {
     const { organizationId, membership, task, user } = await getVisibleTask(ctx, args.taskId);
 
-    if (membership.role !== "subadmin") {
-      throw new Error("Only subadmins can delegate tasks");
+    if (membership.role === "employee") {
+      throw new Error("Employees cannot delegate tasks");
     }
 
-    if (task.accountableLeadMembershipId !== membership._id) {
+    if (membership.role === "subadmin" && task.accountableLeadMembershipId !== membership._id) {
       throw new Error("Only the accountable subadmin can delegate this task");
     }
 
-    if (task.assignedToMembershipId !== membership._id) {
+    if (task.assignedToMembershipId !== membership._id && membership.role !== "owner_admin") {
       throw new Error("This task has already been delegated");
     }
 

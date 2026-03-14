@@ -25,6 +25,11 @@ export default function EmployeeLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
+  // Role guard: only employee can access employee routes
+  if (state.role !== 'employee') {
+    return <Redirect href="/" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

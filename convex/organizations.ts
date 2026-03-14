@@ -170,6 +170,11 @@ export const active = query({
       )
       .unique();
 
+    // Only return the active org if the user has a valid, active membership
+    if (!membership || membership.status !== "active") {
+      return null;
+    }
+
     const settings = await ctx.db
       .query("orgSettings")
       .withIndex("by_organization_id", (q) => q.eq("organizationId", user.activeOrganizationId!))

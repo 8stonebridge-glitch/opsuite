@@ -1,7 +1,16 @@
 {
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/_sitemap",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex" }
+      ]
+    }
+  ],
   "rewrites": [
+    { "source": "/_sitemap", "destination": "/404" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
