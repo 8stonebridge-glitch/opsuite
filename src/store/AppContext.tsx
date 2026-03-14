@@ -8,6 +8,7 @@ import type {
   Team,
   Employee,
   Role,
+  OrgMode,
   OnboardingData,
   Category,
   OrgSettings,
@@ -93,6 +94,8 @@ export interface AppState {
   availability: AvailabilityRecord[];
   teams: Team[];
   allEmployees: Employee[];
+  /** Organization mode: 'managed' (with subadmins) or 'direct' (admin→employees) */
+  orgMode: 'managed' | 'direct';
   // Multi-org
   workspaces: { id: string; orgName: string; industry: Industry | null }[];
   activeWorkspaceId: string;
@@ -138,6 +141,7 @@ const EMPTY_APP_STATE: AppState = {
   availability: [],
   teams: [],
   allEmployees: [],
+  orgMode: 'managed',
   workspaces: [],
   activeWorkspaceId: '',
   isAuthenticated: false,
@@ -174,7 +178,13 @@ function projectState(internal: InternalState): AppState {
     };
   }
 
-  const allEmployees = ws.data.teams.flatMap((t) => [t.lead, ...t.members]);
+  // Derive employees from teams first, then include standalone employees not in any team
+  const teamEmployees = ws.data.teams.flatMap((t) => [t.lead, ...t.members]);
+  const teamEmployeeIds = new Set(teamEmployees.map((e) => e.id));
+  const standaloneEmployees = (ws.data.standaloneEmployees || []).filter(
+    (e) => !teamEmployeeIds.has(e.id)
+  );
+  const allEmployees = [...teamEmployees, ...standaloneEmployees];
 
   return {
     onboardingComplete: internal.onboardingComplete,
@@ -195,6 +205,7 @@ function projectState(internal: InternalState): AppState {
     availability: ws.data.availability,
     teams: ws.data.teams,
     allEmployees,
+    orgMode: ws.config.orgMode || 'managed',
     workspaces: ownedWorkspaces.map((w) => ({
       id: w.id,
       orgName: w.config.orgName,
@@ -295,6 +306,7 @@ function buildApexWorkspace(): Workspace {
       adminName: DEMO_ADMIN,
       sites: DEMO_SITES,
       orgSettings: { noChangeAlertWorkdays: 3, reworkAlertCycles: 3 },
+      orgMode: 'managed',
     },
     data: {
       tasks: DEMO_SEED.tasks,
@@ -304,6 +316,7 @@ function buildApexWorkspace(): Workspace {
       categories: DEMO_CATS,
       teams: TEAMS,
       availability: generateAvailabilityRecords(TEAMS, 'ws-apex'),
+      standaloneEmployees: [],
     },
   };
 }
@@ -339,6 +352,7 @@ function buildSkylineWorkspace(): Workspace {
       adminName: DEMO_ADMIN,
       sites,
       orgSettings: { noChangeAlertWorkdays: 2, reworkAlertCycles: 2 },
+      orgMode: 'managed',
     },
     data: {
       tasks: seed.tasks,
@@ -348,6 +362,7 @@ function buildSkylineWorkspace(): Workspace {
       categories: cats,
       teams,
       availability: generateAvailabilityRecords(teams, 'ws-skyline'),
+      standaloneEmployees: [],
     },
   };
 }
@@ -383,6 +398,7 @@ function buildHarborWorkspace(): Workspace {
       adminName: DEMO_ADMIN,
       sites,
       orgSettings: { noChangeAlertWorkdays: 3, reworkAlertCycles: 3 },
+      orgMode: 'managed',
     },
     data: {
       tasks: seed.tasks,
@@ -392,6 +408,7 @@ function buildHarborWorkspace(): Workspace {
       categories: cats,
       teams,
       availability: generateAvailabilityRecords(teams, 'ws-harbor'),
+      standaloneEmployees: [],
     },
   };
 }
@@ -492,6 +509,7 @@ export type AppAction =
   | { type: 'REMOVE_SITE'; siteId: string }
   | { type: 'ADD_TEAM'; team: Team }
   | { type: 'ADD_MEMBER_TO_TEAM'; teamId: string; member: Employee }
+  | { type: 'ADD_STANDALONE_EMPLOYEE'; employee: Employee }
   | { type: 'FINISH_ONBOARDING' }
   | { type: 'SWITCH_USER'; role: Role; userId: string | null }
   | { type: 'ADD_TASK'; task: Task }
@@ -522,6 +540,7 @@ export type AppAction =
         orgName: string;
         industryId?: string | null;
         orgSettings?: OrgSettings;
+        orgMode?: OrgMode;
       }[];
       activeWorkspaceId: string;
       backendRole?: Role;
@@ -532,6 +551,8 @@ export type AppAction =
       workspaceId: string;
       sites: Site[];
       teams: Team[];
+      standaloneEmployees?: Employee[];
+      orgMode?: OrgMode;
     }
   | { type: 'SIGN_UP'; name: string; email: string; passwordHash: string; orgName: string; industry: Industry; orgStructure: 'with_subadmins' | 'admin_only' }
   | { type: 'SIGN_IN'; accountId: string }
@@ -543,6 +564,7 @@ type InternalOnlyAction =
   | { type: 'SWITCH_ORGANIZATION' }
   | { type: 'SYNC_EXTERNAL_OWNER' }
   | { type: 'SYNC_EXTERNAL_ACTIVE_STRUCTURE' }
+  | { type: 'ADD_STANDALONE_EMPLOYEE' }
   | { type: 'SIGN_UP' }
   | { type: 'SIGN_IN' }
   | { type: 'SIGN_OUT' };
@@ -799,6 +821,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
     };
     const catNames = CATEGORIES_BY_INDUSTRY[action.industry.id] || [];
     const categories = catNames.map((name, i) => ({ id: `${wsId}-c${i + 1}`, name }));
+    const orgMode = action.orgStructure === 'admin_only' ? 'direct' as const : 'managed' as const;
     const newWorkspace: Workspace = {
       id: wsId,
       ownerId: accountId,
@@ -808,6 +831,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
         adminName: action.name,
         sites: [],
         orgSettings: { noChangeAlertWorkdays: 3, reworkAlertCycles: 3 },
+        orgMode,
       },
       data: {
         tasks: [],
@@ -817,6 +841,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
         categories,
         teams: [],
         availability: [],
+        standaloneEmployees: [],
       },
     };
     return {
@@ -863,6 +888,8 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
         reworkAlertCycles: 3,
       };
 
+      const resolvedMode = workspace.orgMode || existingWorkspace?.config.orgMode || 'managed';
+
       if (existingWorkspace) {
         return {
           ...existingWorkspace,
@@ -872,6 +899,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
             industry,
             adminName: action.name.trim(),
             orgSettings: defaultSettings,
+            orgMode: resolvedMode,
           },
         };
       }
@@ -885,6 +913,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
           adminName: action.name.trim(),
           sites: [],
           orgSettings: defaultSettings,
+          orgMode: resolvedMode,
         },
         data: {
           tasks: [],
@@ -929,6 +958,23 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
     };
   }
 
+  if (action.type === 'ADD_STANDALONE_EMPLOYEE') {
+    const wsIndex = internal.workspaces.findIndex((w) => w.id === internal.activeWorkspaceId);
+    if (wsIndex < 0) return internal;
+    const ws = internal.workspaces[wsIndex];
+    const existing = ws.data.standaloneEmployees || [];
+    const updatedWs: Workspace = {
+      ...ws,
+      data: {
+        ...ws.data,
+        standaloneEmployees: [...existing, action.employee],
+      },
+    };
+    const nextWorkspaces = [...internal.workspaces];
+    nextWorkspaces[wsIndex] = updatedWs;
+    return { ...internal, workspaces: nextWorkspaces };
+  }
+
   if (action.type === 'SYNC_EXTERNAL_ACTIVE_STRUCTURE') {
     const wsIndex = internal.workspaces.findIndex((workspace) => workspace.id === action.workspaceId);
     if (wsIndex < 0) return internal;
@@ -939,10 +985,12 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       config: {
         ...targetWorkspace.config,
         sites: action.sites,
+        ...(action.orgMode ? { orgMode: action.orgMode } : {}),
       },
       data: {
         ...targetWorkspace.data,
         teams: action.teams,
+        standaloneEmployees: action.standaloneEmployees || [],
       },
     };
 

@@ -10,6 +10,7 @@ import {
   useAtRiskEmployees,
   useSubadminPerformance,
   useTeams,
+  useOrgMode,
   usePendingRequests,
   useAwayToday,
   useCoverageNeeded,
@@ -28,6 +29,8 @@ export default function OwnerOverviewScreen() {
   const { state } = useApp();
   const { authEnabled, isSignedIn } = useBackendAuth();
   const color = useIndustryColor();
+  const orgMode = useOrgMode();
+  const isDirect = orgMode === 'direct';
   const teams = useTeams();
   const { active, review } = useBucketedTasks();
   const { overdue, stalled } = useActiveGroups();
@@ -94,7 +97,7 @@ export default function OwnerOverviewScreen() {
                     <Avatar name={emp.name} color={emp.teamId ? '#6366f1' : '#9ca3af'} size="sm" />
                     <View className="flex-1">
                       <Text className="text-sm font-medium text-gray-900 dark:text-gray-100">{emp.name}</Text>
-                      <Text className="text-xs text-gray-400 dark:text-gray-500">{emp.teamName}</Text>
+                      <Text className="text-xs text-gray-400 dark:text-gray-500">{emp.teamName || 'Direct report'}</Text>
                     </View>
                   </View>
                 ))}
@@ -140,17 +143,19 @@ export default function OwnerOverviewScreen() {
             </View>
           </View>
 
-          {/* Teams */}
-          <View>
-            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
-              Teams
-            </Text>
-            <View className="gap-2">
-              {teams.map((team) => (
-                <TeamHealthRow key={team.id} teamId={team.id} teamName={team.name} teamColor={team.color} leadName={team.lead.name} memberCount={team.members.length + 1} />
-              ))}
+          {/* Teams — only in managed mode */}
+          {!isDirect && teams.length > 0 && (
+            <View>
+              <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
+                Teams
+              </Text>
+              <View className="gap-2">
+                {teams.map((team) => (
+                  <TeamHealthRow key={team.id} teamId={team.id} teamName={team.name} teamColor={team.color} leadName={team.lead.name} memberCount={team.members.length + 1} />
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* At-Risk Employees */}
           <AtRiskSection employees={atRisk} limit={5} />

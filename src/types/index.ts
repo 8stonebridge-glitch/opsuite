@@ -1,5 +1,8 @@
 export type Role = 'admin' | 'subadmin' | 'employee';
 
+/** Organization management mode: 'managed' has subadmin leads, 'direct' is admin→employees */
+export type OrgMode = 'managed' | 'direct';
+
 export type TaskStatus =
   | 'Open'
   | 'In Progress'
@@ -18,8 +21,8 @@ export interface Employee {
   id: string;
   name: string;
   role: Role;
-  teamId: string;
-  teamName: string;
+  teamId?: string;
+  teamName?: string;
 }
 
 export interface Team {
@@ -109,6 +112,7 @@ export interface WorkspaceConfig {
   adminName: string;
   sites: Site[];
   orgSettings: OrgSettings;
+  orgMode: OrgMode;
 }
 
 export interface WorkspaceData {
@@ -119,6 +123,8 @@ export interface WorkspaceData {
   categories: Category[];
   teams: Team[];
   availability: AvailabilityRecord[];
+  /** Employees not in any team (direct/admin-only mode) */
+  standaloneEmployees?: Employee[];
 }
 
 export interface Workspace {

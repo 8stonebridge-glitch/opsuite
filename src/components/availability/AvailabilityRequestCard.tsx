@@ -85,7 +85,7 @@ export function AvailabilityRequestCard({ record, approverId }: AvailabilityRequ
             {employee?.name || 'Unknown'}
           </Text>
           <Text className="text-xs text-gray-400 dark:text-gray-500">
-            {employee?.teamName || 'Team'}
+            {employee?.teamName || 'Direct report'}
           </Text>
         </View>
         <View

@@ -69,8 +69,12 @@ export const createProvisionedMember = mutation({
       throw new Error("A member name is required");
     }
 
+    // In managed orgs employees must belong to a team; in direct orgs teams are optional
     if (args.role === "employee" && args.teamIds.length === 0) {
-      throw new Error("Employees must belong to at least one team");
+      const organization = await ctx.db.get(organizationId);
+      if (organization?.mode !== "direct") {
+        throw new Error("Employees must belong to at least one team");
+      }
     }
 
     for (const siteId of args.siteIds) {

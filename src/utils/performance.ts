@@ -45,7 +45,13 @@ function getWeekdaysInRange(start: string, end: string): string[] {
 
 // ── Manager lookup ───────────────────────────────────────────────────
 
-export function managerForEmployee(employeeId: string, teams: Team[]): string {
+/**
+ * Returns the manager ID for an employee.
+ * In managed mode: subadmin leads report to 'admin', members report to their lead.
+ * In direct mode: everyone reports to 'admin' (no subadmin layer).
+ */
+export function managerForEmployee(employeeId: string, teams: Team[], orgMode?: string): string {
+  if (orgMode === 'direct') return 'admin';
   for (const team of teams) {
     if (team.lead.id === employeeId) return 'admin'; // leads report to owner
     if (team.members.some((m) => m.id === employeeId)) return team.lead.id;
@@ -285,7 +291,8 @@ export function computeEmployeePerformance(
   tasks: Task[],
   checkIns: CheckIn[],
   teams: Team[],
-  availability?: AvailabilityRecord[]
+  availability?: AvailabilityRecord[],
+  orgMode?: string
 ): EmployeePerformance {
   const today = getToday();
   const windowEnd = today;
@@ -293,7 +300,7 @@ export function computeEmployeePerformance(
   const prevWindowEnd = offsetDate(today, -8);
   const prevWindowStart = offsetDate(today, -14);
 
-  const managerId = managerForEmployee(employeeId, teams);
+  const managerId = managerForEmployee(employeeId, teams, orgMode);
 
   // Current window
   const metrics = computeMetrics(employeeId, tasks, checkIns, windowStart, windowEnd, availability);
@@ -328,7 +335,8 @@ export function computeSubadminPerformance(
   tasks: Task[],
   checkIns: CheckIn[],
   teams: Team[],
-  availability?: AvailabilityRecord[]
+  availability?: AvailabilityRecord[],
+  orgMode?: string
 ): SubadminPerformance {
   const today = getToday();
   const windowEnd = today;
@@ -357,7 +365,7 @@ export function computeSubadminPerformance(
 
   // Compute individual scores
   const employeeScores = memberIds.map((id) => {
-    const perf = computeEmployeePerformance(id, tasks, checkIns, teams, availability);
+    const perf = computeEmployeePerformance(id, tasks, checkIns, teams, availability, orgMode);
     return { employeeId: id, score: perf.score, band: perf.band };
   });
 
@@ -384,7 +392,7 @@ export function computeSubadminPerformance(
 
   // Aggregate worst actions from team
   const allPerfs = memberIds.map((id) =>
-    computeEmployeePerformance(id, tasks, checkIns, teams, availability)
+    computeEmployeePerformance(id, tasks, checkIns, teams, availability, orgMode)
   );
   const actionMap = new Map<string, EmployeeActionItem>();
   for (const perf of allPerfs) {

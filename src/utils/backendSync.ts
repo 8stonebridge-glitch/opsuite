@@ -1,12 +1,13 @@
 import type { ConvexReactClient } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import type { Employee, OrgSettings, Site, Team } from '../types';
+import type { Employee, OrgMode, OrgSettings, Site, Team } from '../types';
 
 interface OrganizationListEntry {
   organization: {
     _id: string;
     name: string;
     industryId?: string | null;
+    mode?: 'managed' | 'direct';
   };
   isActive: boolean;
 }
@@ -14,6 +15,7 @@ interface OrganizationListEntry {
 interface ActiveOrganizationEntry {
   organization?: {
     _id: string;
+    mode?: 'managed' | 'direct';
   } | null;
   settings?: Partial<OrgSettings> | null;
 }
@@ -48,6 +50,7 @@ export interface SyncedWorkspacePayload {
   orgName: string;
   industryId?: string | null;
   orgSettings?: OrgSettings;
+  orgMode?: OrgMode;
 }
 
 export function defaultOrgSettings(settings?: Partial<OrgSettings> | null): OrgSettings {
@@ -80,6 +83,7 @@ export function buildSyncedWorkspaces(
         String(entry.organization._id) === activeWorkspaceId
           ? defaultOrgSettings(activeOrganization?.settings)
           : undefined,
+      orgMode: entry.organization.mode || activeOrganization?.organization?.mode || 'managed',
     })),
   };
 }
@@ -123,17 +127,34 @@ export function buildSyncedTeams(
       ? membershipMap.get(String(team.subadminMembershipId))
       : undefined;
 
-    if (!leadEntry || leadEntry.membership.role !== 'subadmin') {
-      continue;
-    }
+    // In managed mode, skip teams without a valid subadmin lead.
+    // In direct mode, teams may not have a lead — use a placeholder.
+    const lead: Employee = leadEntry && leadEntry.membership.role === 'subadmin'
+      ? {
+          id: String(leadEntry.user._id),
+          name: leadEntry.user.name,
+          role: 'subadmin',
+          teamId: String(team._id),
+          teamName: team.name,
+        }
+      : {
+          // Placeholder lead for leadless teams (direct mode)
+          id: '__no_lead__',
+          name: 'Unassigned',
+          role: 'admin',
+          teamId: String(team._id),
+          teamName: team.name,
+        };
 
-    const lead: Employee = {
-      id: String(leadEntry.user._id),
-      name: leadEntry.user.name,
-      role: 'subadmin',
-      teamId: String(team._id),
-      teamName: team.name,
-    };
+    // If no real lead and this isn't a leadless team (no members either), skip
+    if (lead.id === '__no_lead__') {
+      const hasMembers = memberships.some(
+        (entry) =>
+          entry.membership.role === 'employee' &&
+          entry.membership.teamIds.map(String).includes(String(team._id)),
+      );
+      if (!hasMembers) continue;
+    }
 
     const members: Employee[] = memberships
       .filter(
@@ -161,4 +182,25 @@ export function buildSyncedTeams(
   }
 
   return syncedTeams.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Build standalone employees — members not attached to any team (direct/admin-only mode) */
+export function buildStandaloneEmployees(
+  memberships: MembershipDirectoryEntry[],
+  teams: TeamEntry[],
+): Employee[] {
+  const teamIds = new Set(teams.map((t) => String(t._id)));
+  return memberships
+    .filter((entry) => {
+      if (entry.membership.role === 'owner_admin') return false;
+      // Employee is standalone if they have no teamIds or none of their teamIds exist
+      const memberTeamIds = entry.membership.teamIds.map(String);
+      return memberTeamIds.length === 0 || !memberTeamIds.some((tid) => teamIds.has(tid));
+    })
+    .map((entry) => ({
+      id: String(entry.user._id),
+      name: entry.user.name,
+      role: entry.membership.role as 'employee' | 'subadmin',
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

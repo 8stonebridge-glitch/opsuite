@@ -11,9 +11,14 @@ import {
   pendingAvailabilityRequestsForScope,
   coverageNeededTasksForScope,
 } from '../utils/availability-helpers';
-import type { Task, Team, Employee, CheckIn, EmployeePerformance, SubadminPerformance, AvailabilityRecord } from '../types';
+import type { Task, Team, Employee, CheckIn, EmployeePerformance, SubadminPerformance, AvailabilityRecord, OrgMode } from '../types';
 
 // ── Teams & Employees (from state, org-scoped) ──────────────────────
+
+export function useOrgMode(): OrgMode {
+  const { state } = useApp();
+  return state.orgMode;
+}
 
 export function useTeams(): Team[] {
   const { state } = useApp();
@@ -47,6 +52,8 @@ export function useCurrentRoleLabel(): string {
 
 export function useMyTeam() {
   const { state } = useApp();
+  // In direct mode, employees may not belong to any team
+  if (state.orgMode === 'direct') return undefined;
   return state.teams.find((t) =>
     t.lead.id === state.userId ||
     t.members.some((m) => m.id === state.userId)
@@ -305,8 +312,8 @@ export function useCheckInHealth(employeeIds: string[]) {
 export function useEmployeePerformance(employeeId: string): EmployeePerformance {
   const { state } = useApp();
   return useMemo(
-    () => computeEmployeePerformance(employeeId, state.tasks, state.checkIns, state.teams, state.availability),
-    [employeeId, state.tasks, state.checkIns, state.teams, state.availability]
+    () => computeEmployeePerformance(employeeId, state.tasks, state.checkIns, state.teams, state.availability, state.orgMode),
+    [employeeId, state.tasks, state.checkIns, state.teams, state.availability, state.orgMode]
   );
 }
 
@@ -315,17 +322,17 @@ export function useAllEmployeePerformances(): Map<string, EmployeePerformance> {
   return useMemo(() => {
     const map = new Map<string, EmployeePerformance>();
     for (const emp of state.allEmployees) {
-      map.set(emp.id, computeEmployeePerformance(emp.id, state.tasks, state.checkIns, state.teams, state.availability));
+      map.set(emp.id, computeEmployeePerformance(emp.id, state.tasks, state.checkIns, state.teams, state.availability, state.orgMode));
     }
     return map;
-  }, [state.tasks, state.checkIns, state.allEmployees, state.teams, state.availability]);
+  }, [state.tasks, state.checkIns, state.allEmployees, state.teams, state.availability, state.orgMode]);
 }
 
 export function useSubadminPerformance(teamId: string): SubadminPerformance {
   const { state } = useApp();
   return useMemo(
-    () => computeSubadminPerformance(teamId, state.tasks, state.checkIns, state.teams, state.availability),
-    [teamId, state.tasks, state.checkIns, state.teams, state.availability]
+    () => computeSubadminPerformance(teamId, state.tasks, state.checkIns, state.teams, state.availability, state.orgMode),
+    [teamId, state.tasks, state.checkIns, state.teams, state.availability, state.orgMode]
   );
 }
 
@@ -343,8 +350,8 @@ export function useMyPerformance(): EmployeePerformance | null {
   const { state } = useApp();
   return useMemo(() => {
     if (state.role === 'admin' || !state.userId) return null;
-    return computeEmployeePerformance(state.userId, state.tasks, state.checkIns, state.teams, state.availability);
-  }, [state.role, state.userId, state.tasks, state.checkIns, state.teams, state.availability]);
+    return computeEmployeePerformance(state.userId, state.tasks, state.checkIns, state.teams, state.availability, state.orgMode);
+  }, [state.role, state.userId, state.tasks, state.checkIns, state.teams, state.availability, state.orgMode]);
 }
 
 // ── Daily Handoff & Delegation selectors ────────────────────────────

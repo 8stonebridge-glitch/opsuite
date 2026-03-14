@@ -95,7 +95,7 @@ export function NewTaskScreen() {
       : allEmployees; // admin gets all: leads + members
 
   const empOptions: SelectOption[] = availableAssignees.map((e) => ({
-    label: `${e.name} (${e.teamName}${e.role === 'subadmin' ? ' · Lead' : ''})`,
+    label: `${e.name}${e.teamName ? ` (${e.teamName}${e.role === 'subadmin' ? ' · Lead' : ''})` : ''}`,
     value: e.id,
   }));
 
@@ -192,7 +192,7 @@ export function NewTaskScreen() {
           description: cat?.name,
           priority: priority as Priority,
           siteId: siteId as never,
-          teamId: emp.teamId as never,
+          teamId: (emp.teamId || undefined) as never,
           assignedToMembershipId: String(assigneeMembership.membership._id) as never,
           accountableLeadMembershipId: String(accountableLeadMembership.membership._id) as never,
           dueDate: dueDate || undefined,
@@ -217,7 +217,7 @@ export function NewTaskScreen() {
         due: dueDate || null,
         assignee: emp.name,
         assigneeId,
-        teamId: emp.teamId,
+        teamId: emp.teamId || '',
         status: 'Open',
         assignedBy: curName,
         assignedByRole: state.role,

@@ -6,6 +6,7 @@ import { useBackendAuth } from './BackendProviders';
 import {
   buildSyncedSites,
   buildSyncedTeams,
+  buildStandaloneEmployees,
   buildSyncedWorkspaces,
   waitForConvexIdentity,
 } from '../utils/backendSync';
@@ -240,11 +241,15 @@ export function SessionBridge() {
       return;
     }
 
+    const orgMode = activeOrganization?.organization?.mode === 'direct' ? 'direct' as const : 'managed' as const;
+
     dispatch({
       type: 'SYNC_EXTERNAL_ACTIVE_STRUCTURE',
       workspaceId: activeWorkspaceId,
       sites: buildSyncedSites(sites as never),
       teams: buildSyncedTeams(teams as never, memberships as never),
+      standaloneEmployees: buildStandaloneEmployees(memberships as never, teams as never),
+      orgMode,
     });
   }, [
     activeOrganization,

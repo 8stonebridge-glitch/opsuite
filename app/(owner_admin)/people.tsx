@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { useEmployeeSummaries, useAllEmployeePerformances, useTeams, useAvailability } from '../../src/store/selectors';
+import { useEmployeeSummaries, useAllEmployeePerformances, useTeams, useAvailability, useOrgMode, useAllEmployees } from '../../src/store/selectors';
 import { getActiveAvailability } from '../../src/utils/availability-helpers';
 import { getToday } from '../../src/utils/date';
 import type { Role, Team } from '../../src/types';
@@ -36,6 +36,9 @@ type MemberRoleOption = 'subadmin' | 'employee';
 export default function OwnerPeopleScreen() {
   const { state, dispatch } = useApp();
   const teams = useTeams();
+  const allEmployees = useAllEmployees();
+  const orgMode = useOrgMode();
+  const isDirect = orgMode === 'direct';
   const color = useIndustryColor();
   const { isDark } = useTheme();
   const summaries = useEmployeeSummaries();
@@ -110,7 +113,7 @@ export default function OwnerPeopleScreen() {
       return;
     }
 
-    if (memberRole === 'employee' && !memberTeamId) {
+    if (memberRole === 'employee' && !memberTeamId && !isDirect) {
       setMemberError('Choose the team this employee belongs to.');
       return;
     }
@@ -120,29 +123,60 @@ export default function OwnerPeopleScreen() {
 
     try {
       if (state.isDemo) {
-        if (memberRole === 'subadmin') {
+        if (memberRole === 'subadmin' && !isDirect) {
           setMemberError('In demo mode, create a new lead with Add Team. Real accounts can provision subadmins directly.');
           return;
         }
 
-        const selectedTeam = teams.find((team) => team.id === memberTeamId);
-        if (!selectedTeam) {
-          setMemberError('Select a valid team first.');
-          return;
-        }
+        if (isDirect || !memberTeamId) {
+          const nextEmployeeId = uid();
+          if (memberTeamId) {
+            // Direct mode with optional team assignment
+            const selectedTeam = teams.find((team) => team.id === memberTeamId);
+            if (selectedTeam) {
+              dispatch({
+                type: 'ADD_MEMBER_TO_TEAM',
+                teamId: selectedTeam.id,
+                member: {
+                  id: nextEmployeeId,
+                  name: trimmedName,
+                  role: 'employee',
+                  teamId: selectedTeam.id,
+                  teamName: selectedTeam.name,
+                },
+              });
+            }
+          } else {
+            // Standalone employee — no team
+            dispatch({
+              type: 'ADD_STANDALONE_EMPLOYEE',
+              employee: {
+                id: nextEmployeeId,
+                name: trimmedName,
+                role: 'employee',
+              },
+            });
+          }
+        } else {
+          const selectedTeam = teams.find((team) => team.id === memberTeamId);
+          if (!selectedTeam) {
+            setMemberError('Select a valid team first.');
+            return;
+          }
 
-        const nextEmployeeId = uid();
-        dispatch({
-          type: 'ADD_MEMBER_TO_TEAM',
-          teamId: selectedTeam.id,
-          member: {
-            id: nextEmployeeId,
-            name: trimmedName,
-            role: 'employee',
+          const nextEmployeeId = uid();
+          dispatch({
+            type: 'ADD_MEMBER_TO_TEAM',
             teamId: selectedTeam.id,
-            teamName: selectedTeam.name,
-          },
-        });
+            member: {
+              id: nextEmployeeId,
+              name: trimmedName,
+              role: 'employee',
+              teamId: selectedTeam.id,
+              teamName: selectedTeam.name,
+            },
+          });
+        }
       } else {
         const selectedTeam = teams.find((team) => team.id === memberTeamId);
         const siteIds =
@@ -152,12 +186,17 @@ export default function OwnerPeopleScreen() {
               ].filter(Boolean)
             : [memberSiteId].filter(Boolean);
 
+        // In direct mode, teamIds can be empty for employees
+        const teamIds = memberRole === 'employee' && memberTeamId
+          ? [memberTeamId]
+          : [];
+
         const result = await createProvisionedMember({
           name: trimmedName,
           email: normalizedEmail,
           role: memberRole,
           siteIds: siteIds as never,
-          teamIds: memberRole === 'employee' ? [memberTeamId] as never : ([] as never),
+          teamIds: teamIds as never,
         });
 
         if (memberRole === 'employee' && result?.user && selectedTeam) {
@@ -289,7 +328,7 @@ export default function OwnerPeopleScreen() {
         <View className="px-5 pt-4">
           <View className="flex-row items-center justify-between gap-3 mb-3">
             <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex-1">
-              Teams
+              {isDirect ? 'People' : 'Teams'}
             </Text>
             <View className="flex-row items-center gap-2">
               <Pressable
@@ -301,19 +340,66 @@ export default function OwnerPeopleScreen() {
                   Add Person
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => setShowCreateTeam(true)}
-                className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
-              >
-                <Ionicons name="add" size={16} color={color} />
-                <Text className="text-xs font-semibold" style={{ color }}>
-                  Add Team
-                </Text>
-              </Pressable>
+              {!isDirect && (
+                <Pressable
+                  onPress={() => setShowCreateTeam(true)}
+                  className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+                >
+                  <Ionicons name="add" size={16} color={color} />
+                  <Text className="text-xs font-semibold" style={{ color }}>
+                    Add Team
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
-          {teams.length === 0 && (
+          {/* ── Direct mode: flat employee list ── */}
+          {isDirect && allEmployees.length === 0 && (
+            <EmptyState
+              icon="people-outline"
+              title="No people yet"
+              subtitle="Add your first employee to get started."
+            />
+          )}
+
+          {isDirect && allEmployees.length > 0 && (
+            <Card>
+              {allEmployees.map((emp, idx) => {
+                const summary = summaries.get(emp.id) || {
+                  activeCount: 0,
+                  overdueCount: 0,
+                  lastActivity: null,
+                  checkedInToday: false,
+                };
+                const perf = allPerfs.get(emp.id);
+                const activeAvail = getActiveAvailability(emp.id, today, availability);
+                const availBadge = activeAvail
+                  ? {
+                      label: activeAvail.type === 'sick' ? 'Sick' : activeAvail.type === 'leave' ? 'On leave' : 'Off duty',
+                      color: activeAvail.type === 'sick' ? '#ef4444' : activeAvail.type === 'leave' ? '#3b82f6' : '#6366f1',
+                    }
+                  : null;
+                return (
+                  <EmployeeSummaryCard
+                    key={emp.id}
+                    name={emp.name}
+                    teamColor={color}
+                    summary={summary}
+                    isLead={false}
+                    last={idx === allEmployees.length - 1}
+                    score={perf?.score}
+                    band={perf?.band}
+                    topAction={perf?.actions[0]?.label}
+                    availabilityBadge={availBadge}
+                  />
+                );
+              })}
+            </Card>
+          )}
+
+          {/* ── Managed mode: team-grouped view ── */}
+          {!isDirect && teams.length === 0 && (
             <EmptyState
               icon="people-outline"
               title="No teams yet"
@@ -321,7 +407,7 @@ export default function OwnerPeopleScreen() {
             />
           )}
 
-          {teams.map((team) => {
+          {!isDirect && teams.map((team) => {
             const isExpanded = expandedTeam === team.id;
             const allMembers = [team.lead, ...team.members];
             const isShowingAll = showAll[team.id];
@@ -449,19 +535,21 @@ export default function OwnerPeopleScreen() {
             </Pressable>
           </View>
 
-          <Select
-            label="Role"
-            placeholder="Choose a role"
-            options={[
-              { label: state.isDemo ? 'Employee' : 'Employee', value: 'employee' },
-              ...(!state.isDemo ? [{ label: 'Subadmin', value: 'subadmin' }] : []),
-            ]}
-            value={memberRole}
-            onChange={(value) => {
-              setMemberRole(value as MemberRoleOption);
-              setMemberError('');
-            }}
-          />
+          {!isDirect && (
+            <Select
+              label="Role"
+              placeholder="Choose a role"
+              options={[
+                { label: 'Employee', value: 'employee' },
+                ...(!state.isDemo ? [{ label: 'Subadmin', value: 'subadmin' }] : []),
+              ]}
+              value={memberRole}
+              onChange={(value) => {
+                setMemberRole(value as MemberRoleOption);
+                setMemberError('');
+              }}
+            />
+          )}
 
           <View className="mt-4">
             <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
@@ -495,40 +583,60 @@ export default function OwnerPeopleScreen() {
             />
           </View>
 
-          <View className="mt-4">
-            <Select
-              label={memberRole === 'employee' ? 'Team' : 'Primary Site'}
-              placeholder={
-                memberRole === 'employee'
-                  ? teamOptions.length > 0
-                    ? 'Choose a team'
-                    : 'Create a team first'
-                  : 'Choose a site'
-              }
-              options={
-                memberRole === 'employee'
-                  ? teamOptions
-                  : state.onboarding.sites.map((site) => ({
-                      label: site.name,
-                      value: site.id,
-                    }))
-              }
-              value={memberRole === 'employee' ? memberTeamId : memberSiteId}
-              onChange={(value) => {
-                if (memberRole === 'employee') {
-                  setMemberTeamId(value);
-                } else {
-                  setMemberSiteId(value);
+          {/* In direct mode, team/site selection is optional */}
+          {isDirect ? (
+            teamOptions.length > 0 ? (
+              <View className="mt-4">
+                <Select
+                  label="Team (optional)"
+                  placeholder="No team"
+                  options={[{ label: 'No team', value: '' }, ...teamOptions]}
+                  value={memberTeamId}
+                  onChange={(value) => {
+                    setMemberTeamId(value);
+                    setMemberError('');
+                  }}
+                />
+              </View>
+            ) : null
+          ) : (
+            <View className="mt-4">
+              <Select
+                label={memberRole === 'employee' ? 'Team' : 'Primary Site'}
+                placeholder={
+                  memberRole === 'employee'
+                    ? teamOptions.length > 0
+                      ? 'Choose a team'
+                      : 'Create a team first'
+                    : 'Choose a site'
                 }
-                setMemberError('');
-              }}
-            />
-          </View>
+                options={
+                  memberRole === 'employee'
+                    ? teamOptions
+                    : state.onboarding.sites.map((site) => ({
+                        label: site.name,
+                        value: site.id,
+                      }))
+                }
+                value={memberRole === 'employee' ? memberTeamId : memberSiteId}
+                onChange={(value) => {
+                  if (memberRole === 'employee') {
+                    setMemberTeamId(value);
+                  } else {
+                    setMemberSiteId(value);
+                  }
+                  setMemberError('');
+                }}
+              />
+            </View>
+          )}
 
           <Text className="text-sm text-gray-400 dark:text-gray-500 leading-6 mt-5">
-            {memberRole === 'employee'
-              ? 'Employees are attached to a real team immediately so they show up in people, team, and task views.'
-              : 'Subadmins become available as assignable team leads right away. Later, when they sign in, the app will claim their provisioned record by email.'}
+            {isDirect
+              ? 'This employee will report directly to you. You can optionally assign them to a team.'
+              : memberRole === 'employee'
+                ? 'Employees are attached to a real team immediately so they show up in people, team, and task views.'
+                : 'Subadmins become available as assignable team leads right away. Later, when they sign in, the app will claim their provisioned record by email.'}
           </Text>
 
           {memberError ? (
@@ -539,7 +647,7 @@ export default function OwnerPeopleScreen() {
             <Button
               title={isSavingMember ? 'Creating person...' : 'Create Person'}
               onPress={() => void handleCreateMember()}
-              disabled={isSavingMember || (memberRole === 'employee' && teamOptions.length === 0)}
+              disabled={isSavingMember || (!isDirect && memberRole === 'employee' && teamOptions.length === 0)}
               color={color}
             />
           </View>
