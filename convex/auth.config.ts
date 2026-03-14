@@ -3,7 +3,8 @@ import type { AuthConfig } from 'convex/server';
 export default {
   providers: [
     {
-      domain: process.env.CLERK_JWT_ISSUER_DOMAIN!,
+      // Hardcode the URL here for the handshake to work reliably
+      domain: "https://welcome-wombat-17.clerk.accounts.dev",
       applicationID: 'convex',
     },
   ],

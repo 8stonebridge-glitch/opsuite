@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClerk } from '@clerk/expo';
-import SignInScreen from './(auth)/sign-in';
 import { useApp } from '../src/store/AppContext';
 import { useBackendAuth } from '../src/providers/BackendProviders';
 
@@ -81,10 +80,24 @@ function RestoringSessionScreen({
 
 export default function Index() {
   const { state, dispatch } = useApp();
-  const { clerkEnabled, isLoaded } = useBackendAuth();
+  const { clerkEnabled, isLoaded, isSignedIn } = useBackendAuth();
+  const shouldUseLegacyOnboarding = !clerkEnabled;
+
+  if (!state.isAuthenticated && clerkEnabled && isLoaded && isSignedIn) {
+    return (
+      <RestoringSessionScreen
+        onLocalSignOut={() => {
+          dispatch({ type: 'SIGN_OUT' });
+        }}
+        onForceSignIn={() => {
+          dispatch({ type: 'SIGN_OUT' });
+        }}
+      />
+    );
+  }
 
   if (!state.isAuthenticated) {
-    return <SignInScreen />;
+    return <Redirect href="/(auth)/sign-in" />;
   }
 
   if (clerkEnabled && !isLoaded) {
@@ -100,7 +113,7 @@ export default function Index() {
     );
   }
 
-  if (!state.onboardingComplete) {
+  if (!state.onboardingComplete && shouldUseLegacyOnboarding) {
     return <Redirect href="/(onboarding)/org-name" />;
   }
 

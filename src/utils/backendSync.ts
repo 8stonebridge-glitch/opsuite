@@ -86,7 +86,7 @@ export function buildSyncedWorkspaces(
 
 export async function waitForConvexIdentity(
   convex: ConvexReactClient,
-  timeoutMs = 8000,
+  timeoutMs = 20000,
   pollMs = 250
 ) {
   const startedAt = Date.now();
@@ -100,7 +100,7 @@ export async function waitForConvexIdentity(
   }
 
   throw new Error(
-    'Clerk signed in, but Convex auth is not ready yet. Check that the Clerk JWT template named "convex" is configured correctly.'
+    'Clerk signed in, but Convex is still waiting for the auth token. If this keeps happening, confirm the Clerk JWT template named "convex" is active and that Convex has the correct Clerk issuer domain.'
   );
 }
 

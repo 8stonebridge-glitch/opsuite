@@ -29,6 +29,8 @@ export default function SignInScreen() {
 
   const normalizedEmail = email.trim().toLowerCase();
   const isDemoAccount = normalizedEmail === 'owner@opsuite.demo';
+  const isConvexAuthPendingMessage = (message: string) =>
+    message.includes('Convex is still waiting for the auth token');
 
   const handleSignIn = async () => {
     setError('');
@@ -81,13 +83,20 @@ export default function SignInScreen() {
       }
 
       await setActive({ session: result.createdSessionId });
-      await bootstrapOwnerSession({
-        clerkUserId: normalizedEmail,
-        name: result.userData.firstName && result.userData.lastName
-          ? `${result.userData.firstName} ${result.userData.lastName}`.trim()
-          : result.userData.firstName || result.userData.lastName || 'Owner',
-        email: normalizedEmail,
-      });
+      try {
+        await bootstrapOwnerSession({
+          clerkUserId: normalizedEmail,
+          name: result.userData.firstName && result.userData.lastName
+            ? `${result.userData.firstName} ${result.userData.lastName}`.trim()
+            : result.userData.firstName || result.userData.lastName || 'Owner',
+          email: normalizedEmail,
+        });
+      } catch (bootstrapError) {
+        const bootstrapMessage = getClerkErrorMessage(bootstrapError, '');
+        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
+          throw bootstrapError;
+        }
+      }
       router.replace('/');
     } catch (err) {
       setError(getClerkErrorMessage(err, 'We could not sign you in.'));
@@ -112,11 +121,18 @@ export default function SignInScreen() {
     setIsSubmitting(true);
 
     try {
-      await bootstrapOwnerSession({
-        clerkUserId: backendAuth.userId,
-        name: backendAuth.fullName || 'Owner',
-        email: backendAuth.email,
-      });
+      try {
+        await bootstrapOwnerSession({
+          clerkUserId: backendAuth.userId,
+          name: backendAuth.fullName || 'Owner',
+          email: backendAuth.email,
+        });
+      } catch (bootstrapError) {
+        const bootstrapMessage = getClerkErrorMessage(bootstrapError, '');
+        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
+          throw bootstrapError;
+        }
+      }
       router.replace('/');
     } catch (err) {
       setError(getClerkErrorMessage(err, 'We could not restore the current session yet.'));

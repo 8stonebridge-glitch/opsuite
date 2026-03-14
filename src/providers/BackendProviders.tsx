@@ -71,6 +71,8 @@ function useConvexClerkAuth() {
           console.warn(
             'Clerk did not return a Convex token for the "convex" JWT template. Check the Clerk JWT template configuration.'
           );
+        } else if (token) {
+          console.log('Clerk returned a Convex token successfully.');
         }
 
         return token;

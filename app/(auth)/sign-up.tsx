@@ -3,6 +3,7 @@ import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth, useClerk } from '@clerk/expo';
 import { useSignUp } from '@clerk/expo/legacy';
 import { useConvex, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -12,10 +13,14 @@ import { INDUSTRIES } from '../../src/constants/industries';
 import { getClerkErrorMessage, splitName, validateEmail, validatePassword } from '../../src/utils/auth';
 import { waitForConvexIdentity } from '../../src/utils/backendSync';
 import { useOwnerSessionBootstrap } from '../../src/hooks/useOwnerSessionBootstrap';
+import { useApp } from '../../src/store/AppContext';
 import type { Industry } from '../../src/types';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { dispatch } = useApp();
+  const { signOut } = useClerk();
+  const { isSignedIn } = useAuth();
   const { isLoaded, signUp, setActive } = useSignUp();
   const convex = useConvex();
   const syncFromClerk = useMutation(api.users.syncFromClerk);
@@ -33,8 +38,11 @@ export default function SignUpScreen() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isClearingSession, setIsClearingSession] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
+  const isConvexAuthPendingMessage = (message: string) =>
+    message.includes('Convex is still waiting for the auth token');
 
   const handleCreateAccount = async () => {
     if (!isLoaded || !signUp) return;
@@ -69,6 +77,11 @@ export default function SignUpScreen() {
     setIsSubmitting(true);
 
     try {
+      if (isSignedIn) {
+        await signOut();
+        dispatch({ type: 'SIGN_OUT' });
+      }
+
       const { firstName, lastName } = splitName(name);
 
       await signUp.create({
@@ -84,6 +97,20 @@ export default function SignUpScreen() {
       setError(getClerkErrorMessage(err, 'We could not create your account just yet.'));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleClearCurrentSession = async () => {
+    setError('');
+    setIsClearingSession(true);
+
+    try {
+      await signOut();
+    } catch (err) {
+      setError(getClerkErrorMessage(err, 'We could not clear the current session just yet.'));
+    } finally {
+      dispatch({ type: 'SIGN_OUT' });
+      setIsClearingSession(false);
     }
   };
 
@@ -115,11 +142,18 @@ export default function SignUpScreen() {
         industryId: industry.id,
         mode: orgStructure === 'with_subadmins' ? 'managed' : 'direct',
       });
-      await bootstrapOwnerSession({
-        clerkUserId,
-        name: name.trim(),
-        email: normalizedEmail,
-      });
+      try {
+        await bootstrapOwnerSession({
+          clerkUserId,
+          name: name.trim(),
+          email: normalizedEmail,
+        });
+      } catch (bootstrapError) {
+        const bootstrapMessage = getClerkErrorMessage(bootstrapError, '');
+        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
+          throw bootstrapError;
+        }
+      }
       router.replace('/');
     } catch (err) {
       setError(getClerkErrorMessage(err, 'We could not verify that email code.'));
@@ -167,6 +201,31 @@ export default function SignUpScreen() {
               <Text className="text-base text-gray-400 mb-8">
                 Set up your organization
               </Text>
+
+              {isSignedIn ? (
+                <View className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <Text className="text-sm font-semibold text-amber-900 mb-1">
+                    You’re already signed in
+                  </Text>
+                  <Text className="text-sm leading-6 text-amber-800">
+                    To create a different owner account, clear the current Clerk session first. If this is your account already, head back to sign in and continue that session instead.
+                  </Text>
+                  <View className="mt-4 gap-3">
+                    <Button
+                      title={isClearingSession ? 'Clearing session...' : 'Sign out current session'}
+                      onPress={handleClearCurrentSession}
+                      disabled={isClearingSession}
+                      className="w-full"
+                    />
+                    <Button
+                      title="Back to sign in"
+                      onPress={() => router.replace('/(auth)/sign-in')}
+                      variant="outline"
+                      className="w-full"
+                    />
+                  </View>
+                </View>
+              ) : null}
 
               <View className="gap-4 mb-6">
                 <Input
@@ -299,7 +358,7 @@ export default function SignUpScreen() {
               <Button
                 title={isSubmitting ? 'Sending code...' : 'Create Account'}
                 onPress={handleCreateAccount}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isClearingSession}
                 className="w-full"
               />
             </>
