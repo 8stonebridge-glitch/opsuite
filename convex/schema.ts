@@ -50,7 +50,7 @@ const inviteStatus = v.union(
 
 export default defineSchema({
   users: defineTable({
-    clerkUserId: v.string(),
+    authUserId: v.string(),
     email: v.string(),
     name: v.string(),
     avatarUrl: v.optional(v.string()),
@@ -58,8 +58,17 @@ export default defineSchema({
     createdAt: v.string(),
     updatedAt: v.string(),
   })
-    .index('by_clerk_user_id', ['clerkUserId'])
+    .index('by_auth_user_id', ['authUserId'])
     .index('by_email', ['email']),
+
+  signupDrafts: defineTable({
+    email: v.string(),
+    organizationName: v.string(),
+    industryId: v.optional(v.string()),
+    mode: v.union(v.literal('managed'), v.literal('direct')),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  }).index('by_email', ['email']),
 
   organizations: defineTable({
     name: v.string(),

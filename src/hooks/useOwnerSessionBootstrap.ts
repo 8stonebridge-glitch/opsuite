@@ -6,19 +6,19 @@ import { buildSyncedWorkspaces, waitForConvexIdentity } from '../utils/backendSy
 export function useOwnerSessionBootstrap() {
   const convex = useConvex();
   const { dispatch } = useApp();
-  const syncFromClerk = useMutation(api.users.syncFromClerk);
+  const syncFromAuth = useMutation(api.users.syncFromAuth);
 
   return async ({
-    clerkUserId,
+    authUserId,
     name,
     email,
   }: {
-    clerkUserId: string;
+    authUserId: string;
     name: string;
     email: string;
   }) => {
     await waitForConvexIdentity(convex);
-    await syncFromClerk({});
+    await syncFromAuth({});
 
     const [organizations, activeOrganization] = await Promise.all([
       convex.query(api.organizations.listForViewer, {}),
@@ -33,7 +33,7 @@ export function useOwnerSessionBootstrap() {
 
     dispatch({
       type: 'SYNC_EXTERNAL_OWNER',
-      clerkUserId,
+      authUserId,
       name,
       email,
       workspaces,

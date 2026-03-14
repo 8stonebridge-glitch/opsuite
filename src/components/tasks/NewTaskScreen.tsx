@@ -24,7 +24,7 @@ import type { Task, Priority } from '../../types';
 export function NewTaskScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
-  const { clerkEnabled } = useBackendAuth();
+  const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const sitesLabel = useSitesLabel();
   const curName = useCurrentName();
@@ -33,7 +33,7 @@ export function NewTaskScreen() {
   const createTask = useMutation(api.tasks.create);
   const membershipDirectory = useQuery(
     api.memberships.listForActiveOrganization,
-    !state.isDemo && clerkEnabled ? {} : 'skip'
+    !state.isDemo && authEnabled ? {} : 'skip'
   );
 
   const [title, setTitle] = useState('');
@@ -103,7 +103,7 @@ export function NewTaskScreen() {
       accountableLeadId = state.userId || undefined;
     }
 
-    if (!state.isDemo && clerkEnabled) {
+    if (!state.isDemo && authEnabled) {
       setIsSubmitting(true);
 
       try {

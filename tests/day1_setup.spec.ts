@@ -76,7 +76,7 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('sign-in with valid credentials navigates to overview', async ({ page }) => {
     const success = await trySignIn(page);
-    test.skip(!success, 'No valid credentials for sign-in (Clerk mode without test account)');
+    test.skip(!success, 'No valid credentials for sign-in (external auth mode without test account)');
 
     await assertNotBlankScreen(page, 'overview-after-login');
 
@@ -106,13 +106,13 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('overview page is not a dead end', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await assertNotDeadEnd(page);
   });
 
   test('admin overview shows navigation tabs', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
 
     // Check for tab bar items
@@ -128,7 +128,7 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('can navigate between all admin tabs without blank screens', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
 
     const routes = [
@@ -149,7 +149,7 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('rapid tab switching does not crash', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
 
     // Simulate rapid clicking between tabs
@@ -159,7 +159,7 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('frustrated reload on overview does not break state', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
 
     await frustratedReload(page);
@@ -169,7 +169,7 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('role switching: admin to subadmin shows different UI', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
 
     // Switch to subadmin role
@@ -189,7 +189,7 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('role switching: admin to employee shows My Day', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
 
     // Switch to employee role
@@ -200,7 +200,7 @@ test.describe('Day 1 — Setup and Structure', () => {
 
   test('role switching back and forth does not corrupt state', async ({ page }) => {
     const loggedIn = await trySignIn(page);
-    test.skip(!loggedIn, "No valid credentials for Clerk mode");
+    test.skip(!loggedIn, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
 
     // Switch roles rapidly
@@ -273,7 +273,7 @@ test.describe('Day 1 — Setup and Structure', () => {
     const criticalErrors = errors.filter(
       (e) =>
         e.type === 'exception' &&
-        !e.text.includes('NetworkError') && // Known Clerk telemetry issue
+        !e.text.includes('NetworkError') && // Known auth telemetry issue
         !e.text.includes('clerk-telemetry')
     );
 

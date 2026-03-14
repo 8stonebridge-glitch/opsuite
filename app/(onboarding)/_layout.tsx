@@ -7,7 +7,7 @@ export default function OnboardingLayout() {
   const backendAuth = useBackendAuth();
   const { state } = useApp();
 
-  if (backendAuth.clerkEnabled && !backendAuth.isLoaded) {
+  if (backendAuth.authEnabled && !backendAuth.isLoaded) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator color="#059669" />
@@ -15,8 +15,8 @@ export default function OnboardingLayout() {
     );
   }
 
-  // Keep the legacy onboarding wizard only when Clerk is not active.
-  if (backendAuth.clerkEnabled) {
+  // Keep the legacy onboarding wizard only when external auth is not active.
+  if (backendAuth.authEnabled) {
     return <Redirect href={state.isAuthenticated ? '/' : '/(auth)/sign-in'} />;
   }
 

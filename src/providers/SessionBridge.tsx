@@ -10,78 +10,43 @@ import {
   waitForConvexIdentity,
 } from '../utils/backendSync';
 
-export function ClerkSessionBridge() {
+export function SessionBridge() {
   const { state, dispatch } = useApp();
-  const { clerkEnabled, isLoaded, isSignedIn, userId, email, fullName } = useBackendAuth();
+  const { authEnabled, isLoaded, isSignedIn, userId, email, fullName } = useBackendAuth();
   const convex = useConvex();
   const { isLoading: convexAuthLoading, isAuthenticated: convexAuthenticated } = useConvexAuth();
-  const syncFromClerk = useMutation(api.users.syncFromClerk);
+  const syncFromAuth = useMutation(api.users.syncFromAuth);
 
   const viewer = useQuery(
     api.users.viewer,
-    clerkEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated ? {} : 'skip'
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated ? {} : 'skip'
   );
   const organizations = useQuery(
     api.organizations.listForViewer,
-    clerkEnabled &&
-      isLoaded &&
-      isSignedIn &&
-      !convexAuthLoading &&
-      convexAuthenticated &&
-      viewer?.user
-      ? {}
-      : 'skip'
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
   const activeOrganization = useQuery(
     api.organizations.active,
-    clerkEnabled &&
-      isLoaded &&
-      isSignedIn &&
-      !convexAuthLoading &&
-      convexAuthenticated &&
-      viewer?.user
-      ? {}
-      : 'skip'
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
   const sites = useQuery(
     api.sites.listForActiveOrganization,
-    clerkEnabled &&
-      isLoaded &&
-      isSignedIn &&
-      !convexAuthLoading &&
-      convexAuthenticated &&
-      viewer?.user
-      ? {}
-      : 'skip'
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
   const memberships = useQuery(
     api.memberships.listForActiveOrganization,
-    clerkEnabled &&
-      isLoaded &&
-      isSignedIn &&
-      !convexAuthLoading &&
-      convexAuthenticated &&
-      viewer?.user
-      ? {}
-      : 'skip'
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
   const teams = useQuery(
     api.teams.listForActiveOrganization,
-    clerkEnabled &&
-      isLoaded &&
-      isSignedIn &&
-      !convexAuthLoading &&
-      convexAuthenticated &&
-      viewer?.user
-      ? {}
-      : 'skip'
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
 
   const lastSyncedUserId = useRef<string | null>(null);
   const lastAppliedSnapshot = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!clerkEnabled || !isLoaded) {
+    if (!authEnabled || !isLoaded) {
       return;
     }
 
@@ -106,13 +71,13 @@ export function ClerkSessionBridge() {
     if (!viewer?.user && lastSyncedUserId.current !== userId) {
       lastSyncedUserId.current = userId;
       void waitForConvexIdentity(convex)
-        .then(() => syncFromClerk({}))
+        .then(() => syncFromAuth({}))
         .catch(() => {
           lastSyncedUserId.current = null;
         });
     }
   }, [
-    clerkEnabled,
+    authEnabled,
     convex,
     convexAuthenticated,
     convexAuthLoading,
@@ -121,21 +86,13 @@ export function ClerkSessionBridge() {
     isSignedIn,
     state.isAuthenticated,
     state.isDemo,
-    syncFromClerk,
+    syncFromAuth,
     userId,
     viewer,
   ]);
 
   useEffect(() => {
-    if (
-      !clerkEnabled ||
-      !isLoaded ||
-      !isSignedIn ||
-      !userId ||
-      convexAuthLoading ||
-      !convexAuthenticated ||
-      !viewer?.user
-    ) {
+    if (!authEnabled || !isLoaded || !isSignedIn || !userId || convexAuthLoading || !convexAuthenticated || !viewer?.user) {
       return;
     }
 
@@ -168,7 +125,7 @@ export function ClerkSessionBridge() {
 
     dispatch({
       type: 'SYNC_EXTERNAL_OWNER',
-      clerkUserId: userId,
+      authUserId: userId,
       name: fullName || viewer.user.name || 'Owner',
       email,
       workspaces,
@@ -177,7 +134,7 @@ export function ClerkSessionBridge() {
     lastAppliedSnapshot.current = snapshot;
   }, [
     activeOrganization,
-    clerkEnabled,
+    authEnabled,
     convexAuthenticated,
     convexAuthLoading,
     dispatch,
@@ -191,27 +148,13 @@ export function ClerkSessionBridge() {
   ]);
 
   useEffect(() => {
-    if (
-      !clerkEnabled ||
-      !isLoaded ||
-      !isSignedIn ||
-      convexAuthLoading ||
-      !convexAuthenticated ||
-      !viewer?.user ||
-      organizations === undefined ||
-      activeOrganization === undefined ||
-      sites === undefined ||
-      memberships === undefined ||
-      teams === undefined
-    ) {
+    if (!authEnabled || !isLoaded || !isSignedIn || convexAuthLoading || !convexAuthenticated || !viewer?.user || organizations === undefined || activeOrganization === undefined || sites === undefined || memberships === undefined || teams === undefined) {
       return;
     }
 
     const activeWorkspaceId =
       String(activeOrganization?.organization?._id || '') ||
-      String(
-        organizations.find((entry) => entry?.isActive)?.organization._id || ''
-      );
+      String(organizations.find((entry) => entry?.isActive)?.organization._id || '');
 
     if (!activeWorkspaceId) {
       return;
@@ -225,7 +168,7 @@ export function ClerkSessionBridge() {
     });
   }, [
     activeOrganization,
-    clerkEnabled,
+    authEnabled,
     convexAuthenticated,
     convexAuthLoading,
     dispatch,

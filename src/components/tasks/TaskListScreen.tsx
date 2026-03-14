@@ -85,18 +85,18 @@ function compareTasks(a: Task, b: Task, key: string, dir: 'asc' | 'desc', teams:
 export function TaskListScreen({ basePath }: TaskListScreenProps) {
   const { state } = useApp();
   const router = useRouter();
-  const { clerkEnabled } = useBackendAuth();
+  const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const teams = useTeams();
   const localScoped = useScopedTasks();
   const localAssigned = useMyAssignedTasks();
   const backendTaskLists = useQuery(
     api.tasks.listForCurrentScope,
-    !state.isDemo && clerkEnabled ? {} : 'skip'
+    !state.isDemo && authEnabled ? {} : 'skip'
   );
 
   const isManager = state.role === 'admin' || state.role === 'subadmin';
-  const isBackendMode = !state.isDemo && clerkEnabled;
+  const isBackendMode = !state.isDemo && authEnabled;
   const allScoped = isBackendMode ? backendTaskLists?.scopedTasks || [] : localScoped;
   const myAssigned = isBackendMode ? backendTaskLists?.myAssignedTasks || [] : localAssigned;
   const [scope, setScope] = useState<'assigned' | 'all'>('assigned');

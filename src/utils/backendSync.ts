@@ -100,7 +100,7 @@ export async function waitForConvexIdentity(
   }
 
   throw new Error(
-    'Clerk signed in, but Convex is still waiting for the auth token. If this keeps happening, confirm the Clerk JWT template named "convex" is active and that Convex has the correct Clerk issuer domain.'
+    'Your session is active, but Convex is still waiting for the auth token. If this keeps happening, confirm the Better Auth routes are live and try signing in again.'
   );
 }
 

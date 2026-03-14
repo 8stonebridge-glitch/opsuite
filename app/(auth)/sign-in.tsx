@@ -1,39 +1,69 @@
 import { useState } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useClerk } from '@clerk/expo';
-import { useSignIn } from '@clerk/expo/legacy';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { authClient, emailVerificationCallbackUrl } from '../../src/lib/auth-client';
 import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
-import { getClerkErrorMessage, hashPassword, validateEmail } from '../../src/utils/auth';
+import { getAuthErrorMessage, hashPassword, validateEmail } from '../../src/utils/auth';
 import { useOwnerSessionBootstrap } from '../../src/hooks/useOwnerSessionBootstrap';
 
 export default function SignInScreen() {
   const { dispatch, findAccountByEmail } = useApp();
   const router = useRouter();
-  const { signOut } = useClerk();
-  const { isSignedIn } = useAuth();
-  const { isLoaded, signIn, setActive } = useSignIn();
+  const params = useLocalSearchParams<{ verified?: string; checkEmail?: string }>();
   const backendAuth = useBackendAuth();
   const bootstrapOwnerSession = useOwnerSessionBootstrap();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClearingSession, setIsClearingSession] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
   const isDemoAccount = normalizedEmail === 'owner@opsuite.demo';
   const isConvexAuthPendingMessage = (message: string) =>
     message.includes('Convex is still waiting for the auth token');
+  const isEmailVerificationMessage = (message: string) => {
+    const normalizedMessage = message.toLowerCase();
+    return normalizedMessage.includes('email not verified') || normalizedMessage.includes('verify your email');
+  };
+
+  const handleResendVerification = async () => {
+    if (!validateEmail(email)) {
+      setError('Enter the email address you signed up with first.');
+      return;
+    }
+
+    setError('');
+    setNeedsEmailVerification(true);
+    setIsResendingVerification(true);
+
+    try {
+      const result = await authClient.sendVerificationEmail({
+        email: normalizedEmail,
+        callbackURL: emailVerificationCallbackUrl,
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || 'We could not resend the verification email.');
+      }
+    } catch (err) {
+      setError(getAuthErrorMessage(err, 'We could not resend the verification email.'));
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
 
   const handleSignIn = async () => {
     setError('');
+    setNeedsEmailVerification(false);
 
     if (!validateEmail(email)) {
       setError('Enter a valid work email address.');
@@ -60,46 +90,45 @@ export default function SignInScreen() {
       return;
     }
 
-    if (!isLoaded || !signIn || !setActive) {
-      setError('Authentication is still loading. Please try again in a moment.');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      if (isSignedIn) {
-        await signOut();
+      if (backendAuth.isSignedIn) {
+        await authClient.signOut();
         dispatch({ type: 'SIGN_OUT' });
       }
 
-      const result = await signIn.create({
-        identifier: normalizedEmail,
+      const result = await authClient.signIn.email({
+        email: normalizedEmail,
         password,
+        rememberMe: true,
       });
 
-      if (result.status !== 'complete' || !result.createdSessionId) {
-        throw new Error('This account needs another verification step before sign-in can finish.');
+      if (result.error) {
+        throw new Error(result.error.message || 'We could not sign you in.');
       }
 
-      await setActive({ session: result.createdSessionId });
       try {
         await bootstrapOwnerSession({
-          clerkUserId: normalizedEmail,
-          name: result.userData.firstName && result.userData.lastName
-            ? `${result.userData.firstName} ${result.userData.lastName}`.trim()
-            : result.userData.firstName || result.userData.lastName || 'Owner',
+          authUserId: result.data?.user?.id || normalizedEmail,
+          name: result.data?.user?.name || 'Owner',
           email: normalizedEmail,
         });
       } catch (bootstrapError) {
-        const bootstrapMessage = getClerkErrorMessage(bootstrapError, '');
+        const bootstrapMessage = getAuthErrorMessage(bootstrapError, '');
         if (!isConvexAuthPendingMessage(bootstrapMessage)) {
           throw bootstrapError;
         }
       }
       router.replace('/');
     } catch (err) {
-      setError(getClerkErrorMessage(err, 'We could not sign you in.'));
+      const message = getAuthErrorMessage(err, 'We could not sign you in.');
+      if (isEmailVerificationMessage(message)) {
+        setNeedsEmailVerification(true);
+        setError('Your email still needs confirmation. Check your inbox, then come back and sign in.');
+        return;
+      }
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,6 +136,7 @@ export default function SignInScreen() {
 
   const handleUseCurrentSession = async () => {
     setError('');
+    setNeedsEmailVerification(false);
 
     if (isDemoAccount) {
       router.replace('/');
@@ -123,19 +153,19 @@ export default function SignInScreen() {
     try {
       try {
         await bootstrapOwnerSession({
-          clerkUserId: backendAuth.userId,
+          authUserId: backendAuth.userId,
           name: backendAuth.fullName || 'Owner',
           email: backendAuth.email,
         });
       } catch (bootstrapError) {
-        const bootstrapMessage = getClerkErrorMessage(bootstrapError, '');
+        const bootstrapMessage = getAuthErrorMessage(bootstrapError, '');
         if (!isConvexAuthPendingMessage(bootstrapMessage)) {
           throw bootstrapError;
         }
       }
       router.replace('/');
     } catch (err) {
-      setError(getClerkErrorMessage(err, 'We could not restore the current session yet.'));
+      setError(getAuthErrorMessage(err, 'We could not restore the current session yet.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -143,12 +173,13 @@ export default function SignInScreen() {
 
   const handleClearCurrentSession = async () => {
     setError('');
+    setNeedsEmailVerification(false);
     setIsClearingSession(true);
 
     try {
-      await signOut();
+      await authClient.signOut();
     } catch (err) {
-      setError(getClerkErrorMessage(err, 'We could not clear the current session just yet.'));
+      setError(getAuthErrorMessage(err, 'We could not clear the current session just yet.'));
     } finally {
       dispatch({ type: 'SIGN_OUT' });
       setIsClearingSession(false);
@@ -178,13 +209,35 @@ export default function SignInScreen() {
             </Text>
           </View>
 
-          {isSignedIn ? (
+          {params.verified ? (
+            <View className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <Text className="text-sm font-semibold text-emerald-900 mb-1">
+                Email confirmed
+              </Text>
+              <Text className="text-sm leading-6 text-emerald-800">
+                Your account is verified. Sign in to finish opening your workspace.
+              </Text>
+            </View>
+          ) : null}
+
+          {params.checkEmail ? (
+            <View className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+              <Text className="text-sm font-semibold text-sky-900 mb-1">
+                Check your inbox
+              </Text>
+              <Text className="text-sm leading-6 text-sky-800">
+                We sent a confirmation email. Open the link there, then return here to sign in.
+              </Text>
+            </View>
+          ) : null}
+
+          {backendAuth.isSignedIn ? (
             <View className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <Text className="text-sm font-semibold text-amber-900 mb-1">
                 You’re already signed in
               </Text>
               <Text className="text-sm leading-6 text-amber-800">
-                There is already an active Clerk session on this device. You can continue with it or clear it before signing in again.
+                There is already an active session on this device. You can continue with it or clear it before signing in again.
               </Text>
               <View className="mt-4 gap-3">
                 <Button
@@ -212,6 +265,7 @@ export default function SignInScreen() {
               onChangeText={(text) => {
                 setEmail(text);
                 setError('');
+                setNeedsEmailVerification(false);
               }}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -224,6 +278,7 @@ export default function SignInScreen() {
               onChangeText={(text) => {
                 setPassword(text);
                 setError('');
+                setNeedsEmailVerification(false);
               }}
               secureTextEntry
             />
@@ -245,6 +300,16 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
+          {!backendAuth.isSignedIn && needsEmailVerification ? (
+            <Button
+              title={isResendingVerification ? 'Resending email...' : 'Resend verification email'}
+              onPress={handleResendVerification}
+              disabled={isResendingVerification}
+              variant="outline"
+              className="w-full mb-4"
+            />
+          ) : null}
+
           <Button
             title={isSubmitting ? 'Signing in...' : 'Sign In'}
             onPress={handleSignIn}
@@ -261,18 +326,6 @@ export default function SignInScreen() {
               <Text className="text-emerald-600 font-semibold">Sign Up</Text>
             </Text>
           </Pressable>
-
-          <View className="mt-10 p-4 bg-gray-50 rounded-2xl">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Demo Account
-            </Text>
-            <Text className="text-sm text-gray-500">
-              Email: <Text className="font-medium text-gray-700">owner@opsuite.demo</Text>
-            </Text>
-            <Text className="text-sm text-gray-500 mt-1">
-              Password: <Text className="font-medium text-gray-700">demo1234</Text>
-            </Text>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

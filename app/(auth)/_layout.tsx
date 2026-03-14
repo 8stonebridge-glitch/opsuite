@@ -7,7 +7,7 @@ export default function AuthLayout() {
   const backendAuth = useBackendAuth();
   const { state } = useApp();
 
-  if (backendAuth.clerkEnabled && !backendAuth.isLoaded) {
+  if (backendAuth.authEnabled && !backendAuth.isLoaded) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator color="#059669" />
@@ -15,7 +15,7 @@ export default function AuthLayout() {
     );
   }
 
-  if (backendAuth.clerkEnabled && backendAuth.isLoaded && backendAuth.isSignedIn) {
+  if (backendAuth.authEnabled && backendAuth.isLoaded && backendAuth.isSignedIn) {
     return <Redirect href="/" />;
   }
 

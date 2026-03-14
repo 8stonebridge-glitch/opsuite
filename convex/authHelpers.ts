@@ -15,7 +15,7 @@ export async function getCurrentUser(ctx: AuthCtx) {
   const identity = await requireIdentity(ctx);
   const user = await ctx.db
     .query("users")
-    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", identity.subject))
+    .withIndex("by_auth_user_id", (q) => q.eq("authUserId", identity.subject))
     .unique();
 
   return { identity, user };

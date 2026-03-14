@@ -10,7 +10,7 @@ import { AppProvider } from '../src/store/AppContext';
 import { InboxProvider } from '../src/components/inbox/InboxProvider';
 import { InboxSheet } from '../src/components/inbox/InboxSheet';
 import { BackendProviders } from '../src/providers/BackendProviders';
-import { ClerkSessionBridge } from '../src/providers/ClerkSessionBridge';
+import { SessionBridge } from '../src/providers/SessionBridge';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -28,7 +28,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <BackendProviders>
           <AppProvider>
-            <ClerkSessionBridge />
+            <SessionBridge />
             <InboxProvider>
               <StatusBar style="dark" />
               <Stack screenOptions={{ headerShown: false }}>

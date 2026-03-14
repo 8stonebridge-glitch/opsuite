@@ -39,12 +39,12 @@ export default function OwnerPeopleScreen() {
   const allPerfs = useAllEmployeePerformances();
   const availability = useAvailability();
   const today = getToday();
-  const { clerkEnabled } = useBackendAuth();
+  const { authEnabled } = useBackendAuth();
   const createTeam = useMutation(api.teams.create);
   const createProvisionedMember = useMutation(api.memberships.createProvisionedMember);
   const membershipDirectory = useQuery(
     api.memberships.listForActiveOrganization,
-    !state.isDemo && clerkEnabled ? {} : 'skip'
+    !state.isDemo && authEnabled ? {} : 'skip'
   );
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
@@ -517,7 +517,7 @@ export default function OwnerPeopleScreen() {
           <Text className="text-sm text-gray-400 leading-6 mt-5">
             {memberRole === 'employee'
               ? 'Employees are attached to a real team immediately so they show up in people, team, and task views.'
-              : 'Subadmins become available as assignable team leads right away. Later, when they sign in with Clerk, the app will claim their provisioned record by email.'}
+              : 'Subadmins become available as assignable team leads right away. Later, when they sign in, the app will claim their provisioned record by email.'}
           </Text>
 
           {memberError ? (

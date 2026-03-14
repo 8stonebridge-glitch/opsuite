@@ -31,13 +31,13 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { state, dispatch } = useApp();
-  const { clerkEnabled } = useBackendAuth();
+  const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const curName = useCurrentName();
   const curRoleLabel = useCurrentRoleLabel();
   const localTask = state.tasks.find((t) => t.id === id);
   const localAudit = useTaskAudit(id || '');
-  const isBackendMode = !state.isDemo && clerkEnabled;
+  const isBackendMode = !state.isDemo && authEnabled;
   const backendDetail = useQuery(
     api.tasks.getDetail,
     isBackendMode && id ? { taskId: id as never } : 'skip'

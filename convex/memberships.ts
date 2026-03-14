@@ -102,7 +102,7 @@ export const createProvisionedMember = mutation({
       user = (await ctx.db.get(user._id))!;
     } else {
       const userId = await ctx.db.insert("users", {
-        clerkUserId: `pending:${normalizedEmail}`,
+        authUserId: `pending:${normalizedEmail}`,
         email: normalizedEmail,
         name: trimmedName,
         createdAt: now,

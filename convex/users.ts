@@ -1,6 +1,41 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { displayNameFromIdentity, emailFromIdentity, requireIdentity, requireCurrentUser } from "./authHelpers";
+import { createOrganizationForOwner } from "./organizations";
+
+async function maybeClaimSignupDraft(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  email: string,
+) {
+  const memberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_user_id", (q) => q.eq("userId", userId))
+    .collect();
+
+  if (memberships.length > 0) {
+    return;
+  }
+
+  const draft = await ctx.db
+    .query("signupDrafts")
+    .withIndex("by_email", (q) => q.eq("email", email))
+    .unique();
+
+  if (!draft) {
+    return;
+  }
+
+  await createOrganizationForOwner(ctx, {
+    ownerUserId: userId,
+    name: draft.organizationName,
+    industryId: draft.industryId,
+    mode: draft.mode,
+  });
+
+  await ctx.db.delete(draft._id);
+}
 
 export const viewer = query({
   args: {},
@@ -10,7 +45,7 @@ export const viewer = query({
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", identity.subject))
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", identity.subject))
       .unique();
 
     return {
@@ -25,11 +60,11 @@ export const viewer = query({
   },
 });
 
-export const syncFromClerk = mutation({
+export const syncFromAuth = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await requireIdentity(ctx);
-    const clerkUserId = identity.subject;
+    const authUserId = identity.subject;
     const email = emailFromIdentity(identity);
     const name = displayNameFromIdentity(identity);
     const avatarUrl = typeof identity.pictureUrl === "string" ? identity.pictureUrl : undefined;
@@ -37,7 +72,7 @@ export const syncFromClerk = mutation({
 
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUserId))
       .unique();
 
     if (existing) {
@@ -47,6 +82,7 @@ export const syncFromClerk = mutation({
         avatarUrl,
         updatedAt: now,
       });
+      await maybeClaimSignupDraft(ctx, existing._id, email);
       return await ctx.db.get(existing._id);
     }
 
@@ -57,17 +93,18 @@ export const syncFromClerk = mutation({
 
     if (existingByEmail) {
       await ctx.db.patch(existingByEmail._id, {
-        clerkUserId,
+        authUserId,
         email,
         name,
         avatarUrl,
         updatedAt: now,
       });
+      await maybeClaimSignupDraft(ctx, existingByEmail._id, email);
       return await ctx.db.get(existingByEmail._id);
     }
 
     const userId = await ctx.db.insert("users", {
-      clerkUserId,
+      authUserId,
       email,
       name,
       avatarUrl,
@@ -75,6 +112,7 @@ export const syncFromClerk = mutation({
       updatedAt: now,
     });
 
+    await maybeClaimSignupDraft(ctx, userId, email);
     return await ctx.db.get(userId);
   },
 });

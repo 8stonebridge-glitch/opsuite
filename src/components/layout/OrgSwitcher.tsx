@@ -21,13 +21,13 @@ const INDUSTRY_ICONS: Record<string, string> = {
 export function OrgSwitcher() {
   const { state, dispatch } = useApp();
   const router = useRouter();
-  const { clerkEnabled } = useBackendAuth();
+  const { authEnabled } = useBackendAuth();
   const setActiveOrganization = useMutation(api.users.setActiveOrganization);
 
   const handleSwitch = async (workspaceId: string) => {
     if (workspaceId === state.activeWorkspaceId) return;
 
-    if (!state.isDemo && clerkEnabled) {
+    if (!state.isDemo && authEnabled) {
       try {
         await setActiveOrganization({ organizationId: workspaceId as never });
       } catch (error) {

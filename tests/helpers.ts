@@ -232,9 +232,9 @@ export async function safeNavigate(page: Page, path: string, description = '') {
 
 /**
  * Signs into the app with given credentials.
- * Works for both Clerk-backed auth and local demo auth.
+ * Works for both auth-backed auth and local demo auth.
  *
- * If sign-in fails (e.g. Clerk mode with demo creds), it will throw
+ * If sign-in fails (e.g. external auth mode with demo creds), it will throw
  * unless `optional` is set to true, in which case it returns false.
  */
 export async function signIn(
@@ -267,7 +267,7 @@ export async function signIn(
   } catch {
     if (optional) return false;
 
-    // Check if we're on the sign-in page with an error (Clerk mode with wrong creds)
+    // Check if we're on the sign-in page with an error (external auth mode with wrong creds)
     const pageText = await page.evaluate(() => document.body?.innerText || '');
     if (pageText.includes('No account') || pageText.includes('Incorrect') || pageText.includes('failed')) {
       if (optional) return false;
@@ -278,7 +278,7 @@ export async function signIn(
 }
 
 /**
- * Determines whether the app is running in local demo mode or Clerk backend mode.
+ * Determines whether the app is running in local demo mode or auth backend mode.
  * Checks for the "Demo Account" hint that only appears in local mode.
  */
 export async function isLocalDemoMode(page: Page): Promise<boolean> {
@@ -288,7 +288,7 @@ export async function isLocalDemoMode(page: Page): Promise<boolean> {
 }
 
 /**
- * Attempts sign-in. If in Clerk mode with demo creds, skips auth-dependent tests.
+ * Attempts sign-in. If in external auth mode with demo creds, skips auth-dependent tests.
  * Returns true if successfully signed in.
  */
 export async function trySignIn(page: Page): Promise<boolean> {
@@ -298,12 +298,12 @@ export async function trySignIn(page: Page): Promise<boolean> {
     return await signIn(page, TEST_ADMIN.email, TEST_ADMIN.password, true);
   }
 
-  // Clerk mode — need real test credentials
+  // external auth mode — need real test credentials
   const clerkEmail = process.env.TEST_ADMIN_EMAIL;
   const clerkPassword = process.env.TEST_ADMIN_PASSWORD;
 
   if (!clerkEmail || !clerkPassword || clerkEmail === 'owner@opsuite.demo') {
-    // No real Clerk credentials available — can only test unauthenticated flows
+    // No real auth credentials available — can only test unauthenticated flows
     return false;
   }
 

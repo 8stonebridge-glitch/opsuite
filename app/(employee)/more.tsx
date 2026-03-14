@@ -3,8 +3,8 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useClerk } from '@clerk/expo';
 import { useApp } from '../../src/store/AppContext';
+import { authClient } from '../../src/lib/auth-client';
 import { useCurrentName, useMyTeam, useIndustryColor, useCheckInStats, useAvailability } from '../../src/store/selectors';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
@@ -15,7 +15,6 @@ import { AvailabilityHistory } from '../../src/components/availability/Availabil
 
 export default function EmployeeMoreScreen() {
   const { state, dispatch } = useApp();
-  const { signOut } = useClerk();
   const name = useCurrentName();
   const team = useMyTeam();
   const color = useIndustryColor();
@@ -91,7 +90,7 @@ export default function EmployeeMoreScreen() {
             variant="outline"
             onPress={async () => {
               if (!state.isDemo) {
-                await signOut();
+                await authClient.signOut();
               }
               dispatch({ type: 'SIGN_OUT' });
               router.replace('/');

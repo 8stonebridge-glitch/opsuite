@@ -435,7 +435,7 @@ export type AppAction =
   | { type: 'SWITCH_ORGANIZATION'; workspaceId: string }
   | {
       type: 'SYNC_EXTERNAL_OWNER';
-      clerkUserId: string;
+      authUserId: string;
       name: string;
       email: string;
       workspaces: {
@@ -724,7 +724,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       email,
       passwordHash: existingAccount?.passwordHash || '',
       isDemo: false,
-      clerkUserId: action.clerkUserId,
+      authUserId: action.authUserId,
     };
 
     const otherAccounts = internal.accounts.filter((account) => account.id !== accountId);

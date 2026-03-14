@@ -2,11 +2,11 @@ import { View, Text, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useClerk } from '@clerk/expo';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { authClient } from '../../src/lib/auth-client';
 import { useIndustryColor, useTeams, useAllEmployees } from '../../src/store/selectors';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
@@ -16,8 +16,7 @@ import { OrgSwitcher } from '../../src/components/layout/OrgSwitcher';
 
 export default function OwnerMoreScreen() {
   const { state, dispatch } = useApp();
-  const { signOut } = useClerk();
-  const { clerkEnabled } = useBackendAuth();
+  const { authEnabled } = useBackendAuth();
   const updateOrgSettings = useMutation(api.orgSettings.update);
   const color = useIndustryColor();
   const teams = useTeams();
@@ -29,7 +28,7 @@ export default function OwnerMoreScreen() {
     const newVal = Math.max(1, Math.min(10, current + delta));
     dispatch({ type: 'SET_ORG_SETTINGS', settings: { [key]: newVal } });
 
-    if (!state.isDemo && clerkEnabled) {
+    if (!state.isDemo && authEnabled) {
       try {
         await updateOrgSettings({
           organizationId: state.activeWorkspaceId as never,
@@ -114,7 +113,7 @@ export default function OwnerMoreScreen() {
             variant="outline"
             onPress={async () => {
               if (!state.isDemo) {
-                await signOut();
+                await authClient.signOut();
               }
               dispatch({ type: 'SIGN_OUT' });
               router.replace('/');

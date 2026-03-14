@@ -2,8 +2,8 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useClerk } from '@clerk/expo';
 import { useApp } from '../src/store/AppContext';
+import { authClient } from '../src/lib/auth-client';
 import { useBackendAuth } from '../src/providers/BackendProviders';
 
 function RestoringSessionScreen({
@@ -13,7 +13,6 @@ function RestoringSessionScreen({
   onLocalSignOut: () => void;
   onForceSignIn: () => void;
 }) {
-  const { signOut } = useClerk();
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState('');
   const [showBypass, setShowBypass] = useState(false);
@@ -31,7 +30,7 @@ function RestoringSessionScreen({
     setIsResetting(true);
 
     try {
-      await signOut();
+      await authClient.signOut();
     } catch (error) {
       setResetError(error instanceof Error ? error.message : 'We could not reset the session just yet.');
     } finally {
@@ -63,7 +62,7 @@ function RestoringSessionScreen({
           </Text>
         </Pressable>
         <Text className="text-sm text-gray-400 text-center mt-4">
-          If this screen stays here, the Clerk to Convex connection still needs attention.
+          If this screen stays here, the auth session has not finished connecting to Convex yet.
         </Text>
         {showBypass ? (
           <Pressable onPress={onForceSignIn} className="mt-4">
@@ -80,10 +79,10 @@ function RestoringSessionScreen({
 
 export default function Index() {
   const { state, dispatch } = useApp();
-  const { clerkEnabled, isLoaded, isSignedIn } = useBackendAuth();
-  const shouldUseLegacyOnboarding = !clerkEnabled;
+  const { authEnabled, isLoaded, isSignedIn } = useBackendAuth();
+  const shouldUseLegacyOnboarding = !authEnabled;
 
-  if (!state.isAuthenticated && clerkEnabled && isLoaded && isSignedIn) {
+  if (!state.isAuthenticated && authEnabled && isLoaded && isSignedIn) {
     return (
       <RestoringSessionScreen
         onLocalSignOut={() => {
@@ -100,7 +99,7 @@ export default function Index() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
-  if (clerkEnabled && !isLoaded) {
+  if (authEnabled && !isLoaded) {
     return (
       <RestoringSessionScreen
         onLocalSignOut={() => {

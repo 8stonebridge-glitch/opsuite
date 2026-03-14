@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { requireCurrentUser, slugifyOrganizationName } from "./authHelpers";
 
 async function uniqueOrganizationSlug(ctx: MutationCtx | QueryCtx, base: string) {
@@ -15,6 +16,59 @@ async function uniqueOrganizationSlug(ctx: MutationCtx | QueryCtx, base: string)
     counter += 1;
     candidate = `${base}-${counter}`;
   }
+}
+
+export async function createOrganizationForOwner(
+  ctx: MutationCtx,
+  args: {
+    ownerUserId: Id<"users">;
+    name: string;
+    industryId?: string;
+    mode: "managed" | "direct";
+  },
+) {
+  const now = new Date().toISOString();
+  const slug = await uniqueOrganizationSlug(ctx, slugifyOrganizationName(args.name));
+
+  const organizationId = await ctx.db.insert("organizations", {
+    name: args.name.trim(),
+    slug,
+    industryId: args.industryId,
+    mode: args.mode,
+    ownerUserId: args.ownerUserId,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const membershipId = await ctx.db.insert("memberships", {
+    userId: args.ownerUserId,
+    organizationId,
+    role: "owner_admin",
+    siteIds: [],
+    teamIds: [],
+    status: "active",
+    joinedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await ctx.db.insert("orgSettings", {
+    organizationId,
+    noChangeAlertWorkdays: 3,
+    reworkAlertCycles: 3,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await ctx.db.patch(args.ownerUserId, {
+    activeOrganizationId: organizationId,
+    updatedAt: now,
+  });
+
+  return {
+    organizationId,
+    membershipId,
+  };
 }
 
 export const listForViewer = query({
@@ -54,48 +108,49 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireCurrentUser(ctx);
-    const now = new Date().toISOString();
-    const slug = await uniqueOrganizationSlug(ctx, slugifyOrganizationName(args.name));
-
-    const organizationId = await ctx.db.insert("organizations", {
-      name: args.name.trim(),
-      slug,
+    return await createOrganizationForOwner(ctx, {
+      ownerUserId: user._id,
+      name: args.name,
       industryId: args.industryId,
       mode: args.mode,
-      ownerUserId: user._id,
+    });
+  },
+});
+
+export const storeSignupDraft = mutation({
+  args: {
+    email: v.string(),
+    organizationName: v.string(),
+    industryId: v.optional(v.string()),
+    mode: v.union(v.literal("managed"), v.literal("direct")),
+  },
+  handler: async (ctx, args) => {
+    const now = new Date().toISOString();
+    const normalizedEmail = args.email.trim().toLowerCase();
+
+    const existing = await ctx.db
+      .query("signupDrafts")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        organizationName: args.organizationName.trim(),
+        industryId: args.industryId,
+        mode: args.mode,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("signupDrafts", {
+      email: normalizedEmail,
+      organizationName: args.organizationName.trim(),
+      industryId: args.industryId,
+      mode: args.mode,
       createdAt: now,
       updatedAt: now,
     });
-
-    const membershipId = await ctx.db.insert("memberships", {
-      userId: user._id,
-      organizationId,
-      role: "owner_admin",
-      siteIds: [],
-      teamIds: [],
-      status: "active",
-      joinedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await ctx.db.insert("orgSettings", {
-      organizationId,
-      noChangeAlertWorkdays: 3,
-      reworkAlertCycles: 3,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await ctx.db.patch(user._id, {
-      activeOrganizationId: organizationId,
-      updatedAt: now,
-    });
-
-    return {
-      organizationId,
-      membershipId,
-    };
   },
 });
 

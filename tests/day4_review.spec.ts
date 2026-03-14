@@ -37,7 +37,7 @@ test.describe('Day 4 — Review, Approval, Verification', () => {
     getErrors = collectConsoleErrors(page);
     getNetworkErrors = collectNetworkErrors(page);
     const success = await trySignIn(page);
-    if (!success) test.skip(!success, "No valid credentials for Clerk mode");
+    if (!success) test.skip(!success, "No valid credentials for external auth mode");
     await page.waitForTimeout(1000);
   });
 

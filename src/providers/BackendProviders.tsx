@@ -1,19 +1,18 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { ClerkProvider, useAuth, useUser } from '@clerk/expo';
-import { tokenCache } from '@clerk/expo/token-cache';
 import { ConvexReactClient } from 'convex/react';
-import { ConvexProviderWithClerk } from 'convex/react-clerk';
+import { ConvexProvider } from 'convex/react';
+import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
+import { authBaseUrl, authClient } from '../lib/auth-client';
 
-const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
-
 const convex =
   convexUrl && convexUrl.trim().length > 0
     ? new ConvexReactClient(convexUrl)
     : null;
+const authEnabled = Boolean(convex && authBaseUrl);
 
 interface BackendAuthState {
-  clerkEnabled: boolean;
+  authEnabled: boolean;
   isLoaded: boolean;
   isSignedIn: boolean;
   userId: string | null;
@@ -22,8 +21,8 @@ interface BackendAuthState {
 }
 
 const defaultBackendAuthState: BackendAuthState = {
-  clerkEnabled: Boolean(clerkPublishableKey),
-  isLoaded: !clerkPublishableKey,
+  authEnabled,
+  isLoaded: !authEnabled,
   isSignedIn: false,
   userId: null,
   email: null,
@@ -32,19 +31,19 @@ const defaultBackendAuthState: BackendAuthState = {
 
 const BackendAuthContext = createContext<BackendAuthState>(defaultBackendAuthState);
 
-function ClerkStatusProvider({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn } = useAuth();
-  const { user } = useUser();
+function BetterAuthStatusProvider({ children }: { children: ReactNode }) {
+  const { data: session, isPending } = authClient.useSession();
+  const user = session?.user;
 
   return (
     <BackendAuthContext.Provider
       value={{
-        clerkEnabled: true,
-        isLoaded,
-        isSignedIn: Boolean(isSignedIn),
+        authEnabled: true,
+        isLoaded: !isPending,
+        isSignedIn: Boolean(session?.session),
         userId: user?.id || null,
-        email: user?.primaryEmailAddress?.emailAddress || null,
-        fullName: user?.fullName || null,
+        email: user?.email || null,
+        fullName: user?.name || null,
       }}
     >
       {children}
@@ -52,50 +51,8 @@ function ClerkStatusProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function useConvexClerkAuth() {
-  const auth = useAuth();
-
-  return {
-    ...auth,
-    getToken: async ({ skipCache }: { skipCache?: boolean } = {}) => {
-      try {
-        const token = await auth.getToken({
-          template: 'convex',
-          skipCache,
-        } as {
-          template: string;
-          skipCache?: boolean;
-        });
-
-        if (!token && auth.isSignedIn) {
-          console.warn(
-            'Clerk did not return a Convex token for the "convex" JWT template. Check the Clerk JWT template configuration.'
-          );
-        } else if (token) {
-          console.log('Clerk returned a Convex token successfully.');
-        }
-
-        return token;
-      } catch (error) {
-        console.warn('Failed to fetch Clerk token for Convex.', error);
-        return null;
-      }
-    },
-  };
-}
-
-function ClerkConvexBridge({ children }: { children: ReactNode }) {
-  if (!convex) return <>{children}</>;
-
-  return (
-    <ConvexProviderWithClerk client={convex} useAuth={useConvexClerkAuth}>
-      {children}
-    </ConvexProviderWithClerk>
-  );
-}
-
 export function BackendProviders({ children }: { children: ReactNode }) {
-  if (!clerkPublishableKey) {
+  if (!convex) {
     return (
       <BackendAuthContext.Provider value={defaultBackendAuthState}>
         {children}
@@ -104,11 +61,17 @@ export function BackendProviders({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-      <ClerkStatusProvider>
-        <ClerkConvexBridge>{children}</ClerkConvexBridge>
-      </ClerkStatusProvider>
-    </ClerkProvider>
+    <ConvexProvider client={convex}>
+      {authEnabled ? (
+        <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+          <BetterAuthStatusProvider>{children}</BetterAuthStatusProvider>
+        </ConvexBetterAuthProvider>
+      ) : (
+        <BackendAuthContext.Provider value={defaultBackendAuthState}>
+          {children}
+        </BackendAuthContext.Provider>
+      )}
+    </ConvexProvider>
   );
 }
 

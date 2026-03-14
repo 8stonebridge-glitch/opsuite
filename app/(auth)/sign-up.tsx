@@ -3,50 +3,63 @@ import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useClerk } from '@clerk/expo';
-import { useSignUp } from '@clerk/expo/legacy';
-import { useConvex, useMutation } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { INDUSTRIES } from '../../src/constants/industries';
-import { getClerkErrorMessage, splitName, validateEmail, validatePassword } from '../../src/utils/auth';
-import { waitForConvexIdentity } from '../../src/utils/backendSync';
-import { useOwnerSessionBootstrap } from '../../src/hooks/useOwnerSessionBootstrap';
+import { getAuthErrorMessage, validateEmail, validatePassword } from '../../src/utils/auth';
 import { useApp } from '../../src/store/AppContext';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { authClient, emailVerificationCallbackUrl } from '../../src/lib/auth-client';
 import type { Industry } from '../../src/types';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { dispatch } = useApp();
-  const { signOut } = useClerk();
-  const { isSignedIn } = useAuth();
-  const { isLoaded, signUp, setActive } = useSignUp();
-  const convex = useConvex();
-  const syncFromClerk = useMutation(api.users.syncFromClerk);
-  const createOrganization = useMutation(api.organizations.create);
-  const bootstrapOwnerSession = useOwnerSessionBootstrap();
+  const { isSignedIn } = useBackendAuth();
+  const storeSignupDraft = useMutation(api.organizations.storeSignupDraft);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [orgName, setOrgName] = useState('');
   const [industry, setIndustry] = useState<Industry | null>(null);
   const [orgStructure, setOrgStructure] = useState<'with_subadmins' | 'admin_only'>('with_subadmins');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [pendingVerification, setPendingVerification] = useState(false);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [isClearingSession, setIsClearingSession] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
-  const isConvexAuthPendingMessage = (message: string) =>
-    message.includes('Convex is still waiting for the auth token');
+
+  const handleResendVerification = async () => {
+    if (!pendingVerificationEmail) {
+      return;
+    }
+
+    setError('');
+    setIsResendingVerification(true);
+
+    try {
+      const result = await authClient.sendVerificationEmail({
+        email: pendingVerificationEmail,
+        callbackURL: emailVerificationCallbackUrl,
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || 'We could not resend the verification email.');
+      }
+    } catch (err) {
+      setError(getAuthErrorMessage(err, 'We could not resend the verification email.'));
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
 
   const handleCreateAccount = async () => {
-    if (!isLoaded || !signUp) return;
-
     setError('');
 
     if (name.trim().length < 2) {
@@ -64,6 +77,11 @@ export default function SignUpScreen() {
       return;
     }
 
+    if (password !== confirmPassword) {
+      setError('Passwords must match exactly.');
+      return;
+    }
+
     if (orgName.trim().length < 2) {
       setError('Enter your organization name to continue.');
       return;
@@ -78,23 +96,30 @@ export default function SignUpScreen() {
 
     try {
       if (isSignedIn) {
-        await signOut();
+        await authClient.signOut();
         dispatch({ type: 'SIGN_OUT' });
       }
 
-      const { firstName, lastName } = splitName(name);
-
-      await signUp.create({
-        emailAddress: normalizedEmail,
+      const result = await authClient.signUp.email({
+        name: name.trim(),
+        email: normalizedEmail,
         password,
-        firstName,
-        lastName,
+        callbackURL: emailVerificationCallbackUrl,
       });
 
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      setPendingVerification(true);
+      if (result.error) {
+        throw new Error(result.error.message || 'We could not create your account just yet.');
+      }
+
+      await storeSignupDraft({
+        email: normalizedEmail,
+        organizationName: orgName.trim(),
+        industryId: industry.id,
+        mode: orgStructure === 'with_subadmins' ? 'managed' : 'direct',
+      });
+      setPendingVerificationEmail(normalizedEmail);
     } catch (err) {
-      setError(getClerkErrorMessage(err, 'We could not create your account just yet.'));
+      setError(getAuthErrorMessage(err, 'We could not create your account just yet.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -105,71 +130,12 @@ export default function SignUpScreen() {
     setIsClearingSession(true);
 
     try {
-      await signOut();
+      await authClient.signOut();
     } catch (err) {
-      setError(getClerkErrorMessage(err, 'We could not clear the current session just yet.'));
+      setError(getAuthErrorMessage(err, 'We could not clear the current session just yet.'));
     } finally {
       dispatch({ type: 'SIGN_OUT' });
       setIsClearingSession(false);
-    }
-  };
-
-  const handleVerifyEmail = async () => {
-    if (!isLoaded || !signUp || !setActive || !industry) return;
-
-    setError('');
-    setIsVerifying(true);
-
-    try {
-      const result = await signUp.attemptEmailAddressVerification({
-        code: verificationCode.trim(),
-      });
-
-      if (result.status !== 'complete' || !result.createdSessionId) {
-        throw new Error('That code is not complete yet. Please check the latest code in your inbox.');
-      }
-
-      const clerkUserId = result.createdUserId || signUp.createdUserId;
-      if (!clerkUserId) {
-        throw new Error('Your account was created, but we could not finish sign-in. Please try again.');
-      }
-
-      await setActive({ session: result.createdSessionId });
-      await waitForConvexIdentity(convex);
-      await syncFromClerk({});
-      await createOrganization({
-        name: orgName.trim(),
-        industryId: industry.id,
-        mode: orgStructure === 'with_subadmins' ? 'managed' : 'direct',
-      });
-      try {
-        await bootstrapOwnerSession({
-          clerkUserId,
-          name: name.trim(),
-          email: normalizedEmail,
-        });
-      } catch (bootstrapError) {
-        const bootstrapMessage = getClerkErrorMessage(bootstrapError, '');
-        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
-          throw bootstrapError;
-        }
-      }
-      router.replace('/');
-    } catch (err) {
-      setError(getClerkErrorMessage(err, 'We could not verify that email code.'));
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    if (!isLoaded || !signUp) return;
-
-    setError('');
-    try {
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-    } catch (err) {
-      setError(getClerkErrorMessage(err, 'We could not resend the code right now.'));
     }
   };
 
@@ -193,82 +159,128 @@ export default function SignUpScreen() {
             <Text className="text-sm text-gray-400">Back</Text>
           </Pressable>
 
-          {!pendingVerification ? (
-            <>
-              <Text className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
-                Create account
+          <Text className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
+            Create account
+          </Text>
+          <Text className="text-base text-gray-400 mb-8">
+            Set up your organization
+          </Text>
+
+          {pendingVerificationEmail ? (
+            <View className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+              <View className="h-12 w-12 rounded-2xl bg-emerald-100 items-center justify-center mb-4">
+                <Ionicons name="mail-open-outline" size={24} color="#059669" />
+              </View>
+              <Text className="text-xl font-semibold text-gray-900 mb-2">
+                Check your email
               </Text>
-              <Text className="text-base text-gray-400 mb-8">
-                Set up your organization
+              <Text className="text-sm leading-6 text-gray-600 mb-5">
+                We sent a confirmation link to {pendingVerificationEmail}. Once you verify it, your workspace draft will finish setting up the next time you open the app.
               </Text>
 
-              {isSignedIn ? (
-                <View className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <Text className="text-sm font-semibold text-amber-900 mb-1">
-                    You’re already signed in
-                  </Text>
-                  <Text className="text-sm leading-6 text-amber-800">
-                    To create a different owner account, clear the current Clerk session first. If this is your account already, head back to sign in and continue that session instead.
-                  </Text>
-                  <View className="mt-4 gap-3">
-                    <Button
-                      title={isClearingSession ? 'Clearing session...' : 'Sign out current session'}
-                      onPress={handleClearCurrentSession}
-                      disabled={isClearingSession}
-                      className="w-full"
-                    />
-                    <Button
-                      title="Back to sign in"
-                      onPress={() => router.replace('/(auth)/sign-in')}
-                      variant="outline"
-                      className="w-full"
-                    />
-                  </View>
+              {error ? (
+                <View className="flex-row items-center gap-2 mb-4">
+                  <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                  <Text className="text-sm text-red-600 flex-1">{error}</Text>
                 </View>
               ) : null}
 
+              <View className="gap-3">
+                <Button
+                  title={isResendingVerification ? 'Resending email...' : 'Resend verification email'}
+                  onPress={handleResendVerification}
+                  disabled={isResendingVerification}
+                  className="w-full"
+                />
+                <Button
+                  title="Back to sign in"
+                  onPress={() => router.replace('/(auth)/sign-in?checkEmail=1')}
+                  variant="outline"
+                  className="w-full"
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {!pendingVerificationEmail && isSignedIn ? (
+            <View className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <Text className="text-sm font-semibold text-amber-900 mb-1">
+                You’re already signed in
+              </Text>
+              <Text className="text-sm leading-6 text-amber-800">
+                To create a different owner account, clear the current session first. If this is already your account, head back to sign in and continue that session instead.
+              </Text>
+              <View className="mt-4 gap-3">
+                <Button
+                  title={isClearingSession ? 'Clearing session...' : 'Sign out current session'}
+                  onPress={handleClearCurrentSession}
+                  disabled={isClearingSession}
+                  className="w-full"
+                />
+                <Button
+                  title="Back to sign in"
+                  onPress={() => router.replace('/(auth)/sign-in')}
+                  variant="outline"
+                  className="w-full"
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {!pendingVerificationEmail ? (
+            <>
               <View className="gap-4 mb-6">
-                <Input
-                  label="Full Name"
-                  placeholder="Your name"
-                  value={name}
-                  onChangeText={(text) => {
-                    setName(text);
-                    setError('');
-                  }}
-                  autoCapitalize="words"
-                />
-                <Input
-                  label="Work Email"
-                  placeholder="you@company.com"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    setError('');
-                  }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <Input
-                  label="Password"
-                  placeholder="Min. 6 characters"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    setError('');
-                  }}
-                  secureTextEntry
-                />
-                <Input
-                  label="Organization Name"
-                  placeholder="Your company or team"
-                  value={orgName}
-                  onChangeText={(text) => {
-                    setOrgName(text);
-                    setError('');
-                  }}
-                />
+            <Input
+              label="Full Name"
+              placeholder="Your name"
+              value={name}
+              onChangeText={(text) => {
+                setName(text);
+                setError('');
+              }}
+              autoCapitalize="words"
+            />
+            <Input
+              label="Work Email"
+              placeholder="you@company.com"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setError('');
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Input
+              label="Password"
+              placeholder="Min. 6 characters"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setError('');
+              }}
+              secureTextEntry
+            />
+            <Input
+              label="Confirm Password"
+              placeholder="Re-enter password"
+              value={confirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                setError('');
+              }}
+              secureTextEntry
+            />
+            <Input
+              label="Organization Name"
+              placeholder="Your company or team"
+              value={orgName}
+              onChangeText={(text) => {
+                setOrgName(text);
+                setError('');
+              }}
+            />
               </View>
 
               <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -351,93 +363,18 @@ export default function SignUpScreen() {
               {error ? (
                 <View className="flex-row items-center gap-2 mb-4 px-1">
                   <Ionicons name="alert-circle" size={16} color="#dc2626" />
-                  <Text className="text-sm text-red-600">{error}</Text>
+                  <Text className="text-sm text-red-600 flex-1">{error}</Text>
                 </View>
               ) : null}
 
               <Button
-                title={isSubmitting ? 'Sending code...' : 'Create Account'}
+                title={isSubmitting ? 'Creating account...' : 'Create Account'}
                 onPress={handleCreateAccount}
-                disabled={isSubmitting || isClearingSession}
+                disabled={isSubmitting}
                 className="w-full"
               />
             </>
-          ) : (
-            <>
-              <Text className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
-                Verify your email
-              </Text>
-              <Text className="text-base text-gray-400 mb-8">
-                We sent a code to {normalizedEmail}
-              </Text>
-
-              <View className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 mb-6">
-                <Text className="text-sm text-emerald-700 leading-6">
-                  New accounts must verify before we open the workspace. Enter the latest code from your inbox, then we’ll finish creating your organization.
-                </Text>
-              </View>
-
-              <Input
-                label="Verification Code"
-                placeholder="Enter the code"
-                value={verificationCode}
-                onChangeText={(text) => {
-                  setVerificationCode(text);
-                  setError('');
-                }}
-                keyboardType="number-pad"
-                autoCapitalize="none"
-                autoCorrect={false}
-                containerClassName="mb-6"
-              />
-
-              {error ? (
-                <View className="flex-row items-center gap-2 mb-4 px-1">
-                  <Ionicons name="alert-circle" size={16} color="#dc2626" />
-                  <Text className="text-sm text-red-600">{error}</Text>
-                </View>
-              ) : null}
-
-              <Button
-                title={isVerifying ? 'Verifying...' : 'Verify Email'}
-                onPress={handleVerifyEmail}
-                disabled={verificationCode.trim().length < 4 || isVerifying}
-                className="w-full"
-              />
-
-              <Pressable
-                onPress={handleResendCode}
-                className="mt-4 items-center"
-              >
-                <Text className="text-sm text-emerald-600 font-semibold">
-                  Resend code
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  setPendingVerification(false);
-                  setVerificationCode('');
-                  setError('');
-                }}
-                className="mt-4 items-center"
-              >
-                <Text className="text-sm text-gray-400">
-                  Edit details
-                </Text>
-              </Pressable>
-            </>
-          )}
-
-          <Pressable
-            onPress={() => router.back()}
-            className="mt-6 items-center"
-          >
-            <Text className="text-sm text-gray-400">
-              Already have an account?{' '}
-              <Text className="text-emerald-600 font-semibold">Sign In</Text>
-            </Text>
-          </Pressable>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

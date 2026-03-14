@@ -18,7 +18,7 @@ export default function SitesScreen() {
   const color = useIndustryColor();
   const label = useSitesLabel();
   const router = useRouter();
-  const { clerkEnabled } = useBackendAuth();
+  const { authEnabled } = useBackendAuth();
   const createSite = useMutation(api.sites.create);
   const [showCreateSite, setShowCreateSite] = useState(false);
   const [siteName, setSiteName] = useState('');
@@ -39,7 +39,7 @@ export default function SitesScreen() {
     setIsSavingSite(true);
 
     try {
-      if (!state.isDemo && clerkEnabled) {
+      if (!state.isDemo && authEnabled) {
         const createdSite = await createSite({
           name: trimmedName,
           code: trimmedCode || undefined,

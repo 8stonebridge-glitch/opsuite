@@ -31,7 +31,7 @@ export function splitName(fullName: string): {
   };
 }
 
-export function getClerkErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.') {
+export function getAuthErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.') {
   if (
     error &&
     typeof error === 'object' &&
