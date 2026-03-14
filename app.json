@@ -30,6 +30,19 @@
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6015df6b-5634-4b00-9c3c-21150cff9075"
+      }
+    },
+    "owner": "entekim",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6015df6b-5634-4b00-9c3c-21150cff9075"
+    }
   }
 }
