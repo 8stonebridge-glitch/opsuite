@@ -174,6 +174,50 @@ async function hydrateTasks(
   });
 }
 
+async function hydrateAudits(
+  ctx: QueryCtx | MutationCtx,
+  audits: Doc<"taskAudits">[],
+) {
+  const actorMembershipIds = [
+    ...new Set(audits.map((audit) => audit.actorMembershipId).filter(Boolean)),
+  ] as Id<"memberships">[];
+
+  const actorMemberships = await Promise.all(
+    actorMembershipIds.map((membershipId) => ctx.db.get(membershipId)),
+  );
+  const actorMembershipMap = new Map(
+    actorMemberships
+      .filter(Boolean)
+      .map((actorMembership) => [String(actorMembership!._id), actorMembership!]),
+  );
+  const actorUsers = await Promise.all(
+    actorMemberships
+      .filter(Boolean)
+      .map((actorMembership) => ctx.db.get(actorMembership!.userId)),
+  );
+  const actorUserMap = new Map(
+    actorUsers.filter(Boolean).map((actorUser) => [String(actorUser!._id), actorUser!]),
+  );
+
+  return audits.map((audit) => {
+    const actorMembership = audit.actorMembershipId
+      ? actorMembershipMap.get(String(audit.actorMembershipId))
+      : null;
+    const actorUser = actorMembership ? actorUserMap.get(String(actorMembership.userId)) : null;
+
+    return {
+      id: String(audit._id),
+      taskId: String(audit.taskId),
+      role: actorMembership ? mapRole(actorMembership.role) : "System",
+      message: audit.message,
+      createdAt: audit.createdAt,
+      dateTag: audit.createdAt.split("T")[0] || audit.createdAt,
+      updateType: audit.type,
+      actorName: actorUser?.name,
+    };
+  });
+}
+
 export const listForCurrentScope = query({
   args: {},
   handler: async (ctx) => {
@@ -190,10 +234,24 @@ export const listForCurrentScope = query({
       ctx,
       scopedTasks.filter((task) => task.createdByMembershipId === membership._id),
     );
+    const taskIds = scopedTasks.map((task) => task._id);
+    const allAudits = await Promise.all(
+      taskIds.map((taskId) =>
+        ctx.db
+          .query("taskAudits")
+          .withIndex("by_task_created_at", (q) => q.eq("taskId", taskId))
+          .collect(),
+      ),
+    );
+    const hydratedAuditEntries = await hydrateAudits(
+      ctx,
+      allAudits.flat().sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    );
 
     return {
       scopedTasks: hydratedScopedTasks,
       myAssignedTasks: hydratedAssignedTasks,
+      auditEntries: hydratedAuditEntries,
     };
   },
 });
@@ -215,27 +273,6 @@ export const getDetail = query({
       .query("taskAudits")
       .withIndex("by_task_created_at", (q) => q.eq("taskId", args.taskId))
       .collect();
-
-    const actorMembershipIds = [
-      ...new Set(audits.map((audit) => audit.actorMembershipId).filter(Boolean)),
-    ] as Id<"memberships">[];
-
-    const actorMemberships = await Promise.all(
-      actorMembershipIds.map((membershipId) => ctx.db.get(membershipId)),
-    );
-    const actorMembershipMap = new Map(
-      actorMemberships
-        .filter(Boolean)
-        .map((actorMembership) => [String(actorMembership!._id), actorMembership!]),
-    );
-    const actorUsers = await Promise.all(
-      actorMemberships
-        .filter(Boolean)
-        .map((actorMembership) => ctx.db.get(actorMembership!.userId)),
-    );
-    const actorUserMap = new Map(
-      actorUsers.filter(Boolean).map((actorUser) => [String(actorUser!._id), actorUser!]),
-    );
 
     let teamMembers: Array<{ membershipId: string; userId: string; name: string }> = [];
     if (
@@ -285,22 +322,7 @@ export const getDetail = query({
         task.assignedToMembershipId === membership._id &&
         !task.delegatedAt,
       teamMembers,
-      audit: audits.map((audit) => {
-        const actorMembership = audit.actorMembershipId
-          ? actorMembershipMap.get(String(audit.actorMembershipId))
-          : null;
-        const actorUser = actorMembership ? actorUserMap.get(String(actorMembership.userId)) : null;
-        return {
-          id: String(audit._id),
-          taskId: String(audit.taskId),
-          role: actorMembership ? mapRole(actorMembership.role) : "System",
-          message: audit.message,
-          createdAt: audit.createdAt,
-          dateTag: audit.createdAt.split("T")[0] || audit.createdAt,
-          updateType: audit.type,
-          actorName: actorUser?.name,
-        };
-      }),
+      audit: await hydrateAudits(ctx, audits),
     };
   },
 });

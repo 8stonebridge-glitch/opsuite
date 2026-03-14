@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import type { AvailabilityRecord, AvailabilityType } from '../../types';
 import { useApp } from '../../store/AppContext';
 import { useAllEmployees } from '../../store/selectors';
+import { useBackendAuth } from '../../providers/BackendProviders';
 import { Card } from '../ui/Card';
 import { Avatar } from '../ui/Avatar';
 
@@ -18,8 +22,12 @@ interface AvailabilityRequestCardProps {
 }
 
 export function AvailabilityRequestCard({ record, approverId }: AvailabilityRequestCardProps) {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
+  const { authEnabled } = useBackendAuth();
   const allEmployees = useAllEmployees();
+  const approveAvailability = useMutation(api.availability.approve);
+  const rejectAvailability = useMutation(api.availability.reject);
+  const [isSubmitting, setIsSubmitting] = useState<'approve' | 'reject' | null>(null);
   const employee = allEmployees.find((e) => e.id === record.memberId);
   const typeConfig = TYPE_CONFIG[record.type];
 
@@ -28,20 +36,42 @@ export function AvailabilityRequestCard({ record, approverId }: AvailabilityRequ
       ? formatShortDate(record.startDate)
       : `${formatShortDate(record.startDate)} - ${formatShortDate(record.endDate)}`;
 
-  const handleApprove = () => {
-    dispatch({
-      type: 'APPROVE_AVAILABILITY',
-      recordId: record.id,
-      approvedById: approverId,
-    });
+  const handleApprove = async () => {
+    setIsSubmitting('approve');
+    try {
+      if (!state.isDemo && authEnabled) {
+        await approveAvailability({
+          recordId: record.id as never,
+        });
+      } else {
+        dispatch({
+          type: 'APPROVE_AVAILABILITY',
+          recordId: record.id,
+          approvedById: approverId,
+        });
+      }
+    } finally {
+      setIsSubmitting(null);
+    }
   };
 
-  const handleReject = () => {
-    dispatch({
-      type: 'REJECT_AVAILABILITY',
-      recordId: record.id,
-      approvedById: approverId,
-    });
+  const handleReject = async () => {
+    setIsSubmitting('reject');
+    try {
+      if (!state.isDemo && authEnabled) {
+        await rejectAvailability({
+          recordId: record.id as never,
+        });
+      } else {
+        dispatch({
+          type: 'REJECT_AVAILABILITY',
+          recordId: record.id,
+          approvedById: approverId,
+        });
+      }
+    } finally {
+      setIsSubmitting(null);
+    }
   };
 
   return (
@@ -83,16 +113,22 @@ export function AvailabilityRequestCard({ record, approverId }: AvailabilityRequ
 
       <View className="flex-row gap-2">
         <Pressable
-          onPress={handleApprove}
+          onPress={() => void handleApprove()}
+          disabled={Boolean(isSubmitting)}
           className="flex-1 py-2.5 rounded-xl items-center bg-green-50"
         >
-          <Text className="text-xs font-semibold text-green-600">Approve</Text>
+          <Text className="text-xs font-semibold text-green-600">
+            {isSubmitting === 'approve' ? 'Approving...' : 'Approve'}
+          </Text>
         </Pressable>
         <Pressable
-          onPress={handleReject}
+          onPress={() => void handleReject()}
+          disabled={Boolean(isSubmitting)}
           className="flex-1 py-2.5 rounded-xl items-center bg-red-50"
         >
-          <Text className="text-xs font-semibold text-red-500">Reject</Text>
+          <Text className="text-xs font-semibold text-red-500">
+            {isSubmitting === 'reject' ? 'Rejecting...' : 'Reject'}
+          </Text>
         </Pressable>
       </View>
     </Card>

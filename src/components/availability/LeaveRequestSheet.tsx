@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { View, Text, Pressable, Modal, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
 import { useIndustryColor } from '../../store/selectors';
 import { getToday, getNowISO } from '../../utils/date';
 import { uid } from '../../utils/id';
+import { useBackendAuth } from '../../providers/BackendProviders';
 
 interface LeaveRequestSheetProps {
   visible: boolean;
@@ -13,39 +16,56 @@ interface LeaveRequestSheetProps {
 
 export function LeaveRequestSheet({ visible, onClose }: LeaveRequestSheetProps) {
   const { state, dispatch } = useApp();
+  const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const today = getToday();
+  const createAvailabilityRequest = useMutation(api.availability.createRequest);
 
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!state.userId || !state.activeWorkspaceId) return;
 
-    dispatch({
-      type: 'REQUEST_AVAILABILITY',
-      record: {
-        id: uid(),
-        organizationId: state.activeWorkspaceId,
-        memberId: state.userId,
-        type: 'leave',
-        status: 'pending',
-        startDate,
-        endDate,
-        notes: notes.trim(),
-        requestedById: state.userId,
-        approvedById: null,
-        createdAt: getNowISO(),
-        approvedAt: null,
-      },
-    });
+    setIsSubmitting(true);
 
-    // Reset and close
-    setStartDate(today);
-    setEndDate(today);
-    setNotes('');
-    onClose();
+    try {
+      if (!state.isDemo && authEnabled) {
+        await createAvailabilityRequest({
+          type: 'leave',
+          startDate,
+          endDate,
+          notes: notes.trim() || undefined,
+        });
+      } else {
+        dispatch({
+          type: 'REQUEST_AVAILABILITY',
+          record: {
+            id: uid(),
+            organizationId: state.activeWorkspaceId,
+            memberId: state.userId,
+            type: 'leave',
+            status: 'pending',
+            startDate,
+            endDate,
+            notes: notes.trim(),
+            requestedById: state.userId,
+            approvedById: null,
+            createdAt: getNowISO(),
+            approvedAt: null,
+          },
+        });
+      }
+
+      setStartDate(today);
+      setEndDate(today);
+      setNotes('');
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isValid = startDate >= today && endDate >= startDate;
@@ -101,16 +121,16 @@ export function LeaveRequestSheet({ visible, onClose }: LeaveRequestSheetProps) 
 
         {/* Submit */}
         <Pressable
-          onPress={handleSubmit}
-          disabled={!isValid}
+          onPress={() => void handleSubmit()}
+          disabled={!isValid || isSubmitting}
           className="py-3.5 rounded-2xl items-center"
-          style={{ backgroundColor: isValid ? color : '#e5e7eb' }}
+          style={{ backgroundColor: isValid && !isSubmitting ? color : '#e5e7eb' }}
         >
           <Text
             className="text-sm font-semibold"
-            style={{ color: isValid ? '#fff' : '#9ca3af' }}
+            style={{ color: isValid && !isSubmitting ? '#fff' : '#9ca3af' }}
           >
-            Submit Request
+            {isSubmitting ? 'Submitting...' : 'Submit Request'}
           </Text>
         </Pressable>
       </View>

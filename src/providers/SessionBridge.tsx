@@ -41,6 +41,14 @@ export function SessionBridge() {
     api.teams.listForActiveOrganization,
     authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
   );
+  const taskFeed = useQuery(
+    api.tasks.listForCurrentScope,
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
+  );
+  const availability = useQuery(
+    api.availability.listForCurrentScope,
+    authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
+  );
   const handoffFeed = useQuery(
     api.handoffs.listForCurrentScope,
     authEnabled && isLoaded && isSignedIn && !convexAuthLoading && convexAuthenticated && viewer?.user ? {} : 'skip'
@@ -182,6 +190,50 @@ export function SessionBridge() {
     organizations,
     sites,
     teams,
+    viewer,
+  ]);
+
+  useEffect(() => {
+    if (!authEnabled || !isLoaded || !isSignedIn || convexAuthLoading || !convexAuthenticated || !viewer?.user || taskFeed === undefined) {
+      return;
+    }
+
+    dispatch({
+      type: 'SET_TASKS',
+      tasks: taskFeed.scopedTasks,
+    });
+    dispatch({
+      type: 'SET_AUDIT',
+      entries: taskFeed.auditEntries,
+    });
+  }, [
+    authEnabled,
+    convexAuthenticated,
+    convexAuthLoading,
+    dispatch,
+    isLoaded,
+    isSignedIn,
+    taskFeed,
+    viewer,
+  ]);
+
+  useEffect(() => {
+    if (!authEnabled || !isLoaded || !isSignedIn || convexAuthLoading || !convexAuthenticated || !viewer?.user || availability === undefined) {
+      return;
+    }
+
+    dispatch({
+      type: 'SET_AVAILABILITY',
+      availability,
+    });
+  }, [
+    authEnabled,
+    availability,
+    convexAuthenticated,
+    convexAuthLoading,
+    dispatch,
+    isLoaded,
+    isSignedIn,
     viewer,
   ]);
 

@@ -48,8 +48,10 @@ export default function EmployeeMyDayScreen() {
   );
   const markNoChange = useMutation(api.tasks.markNoChange);
   const completeHandoff = useMutation(api.handoffs.completeForToday);
+  const createAvailabilityRequest = useMutation(api.availability.createRequest);
   const [isSubmittingHandoff, setIsSubmittingHandoff] = useState(false);
   const [isSubmittingNoChangeId, setIsSubmittingNoChangeId] = useState<string | null>(null);
+  const [isSubmittingSick, setIsSubmittingSick] = useState(false);
 
   const backendTasks = backendTaskLists?.scopedTasks || [];
   const { dueToday, overdue, inProgress } = useMemo(() => {
@@ -173,7 +175,22 @@ export default function EmployeeMyDayScreen() {
   };
 
   // Report sick today (immediate protection)
-  const handleReportSick = () => {
+  const handleReportSick = async () => {
+    if (isBackendMode) {
+      setIsSubmittingSick(true);
+      try {
+        await createAvailabilityRequest({
+          type: 'sick',
+          startDate: today,
+          endDate: today,
+          notes: 'Reported sick',
+        });
+      } finally {
+        setIsSubmittingSick(false);
+      }
+      return;
+    }
+
     if (!state.userId || !state.activeWorkspaceId) return;
     dispatch({
       type: 'REQUEST_AVAILABILITY',
@@ -388,12 +405,14 @@ export default function EmployeeMyDayScreen() {
 
           {/* Report Sick — only when not already unavailable */}
           {!isUnavailable && !hasAvailabilityToday && (
-            <Pressable onPress={handleReportSick}>
+            <Pressable onPress={() => void handleReportSick()} disabled={isSubmittingSick}>
               <Card className="flex-row items-center gap-3">
                 <View className="w-8 h-8 rounded-full items-center justify-center bg-red-50">
                   <Ionicons name="medkit" size={16} color="#ef4444" />
                 </View>
-                <Text className="text-sm font-medium text-gray-700 flex-1">Report Sick Today</Text>
+                <Text className="text-sm font-medium text-gray-700 flex-1">
+                  {isSubmittingSick ? 'Reporting Sick...' : 'Report Sick Today'}
+                </Text>
                 <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
               </Card>
             </Pressable>

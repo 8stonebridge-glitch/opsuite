@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as authHelpers from "../authHelpers.js";
+import type * as availability from "../availability.js";
 import type * as handoffs from "../handoffs.js";
 import type * as http from "../http.js";
 import type * as memberships from "../memberships.js";
@@ -29,6 +30,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authHelpers: typeof authHelpers;
+  availability: typeof availability;
   handoffs: typeof handoffs;
   http: typeof http;
   memberships: typeof memberships;
