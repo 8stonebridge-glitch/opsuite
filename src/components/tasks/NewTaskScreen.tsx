@@ -90,7 +90,7 @@ export function NewTaskScreen() {
     return dateStr < today!;
   };
 
-  const isValid = title.trim() && siteId && assigneeId && priority && !isPastDate(dueDate);
+  const isValid = title.trim() && siteId && assigneeId && priority && dueDate && !isPastDate(dueDate);
 
   /** Format a Date object to YYYY-MM-DD string */
   const formatDate = (d: Date): string => {
@@ -111,6 +111,7 @@ export function NewTaskScreen() {
 
   const handleDateChange = (dateStr: string) => {
     setDueDate(dateStr);
+    setTouched((prev) => ({ ...prev, dueDate: true }));
     if (isPastDate(dateStr)) {
       setDueDateError('Due date cannot be in the past');
     } else {
@@ -237,7 +238,7 @@ export function NewTaskScreen() {
         <Pressable
           onPress={() => {
             if (!isValid) {
-              setTouched({ title: true, siteId: true, assigneeId: true, priority: true });
+              setTouched({ title: true, siteId: true, assigneeId: true, priority: true, dueDate: true });
               return;
             }
             void handleSubmit();
@@ -390,11 +391,8 @@ export function NewTaskScreen() {
             )}
             {dueDateError ? (
               <Text className="text-xs text-red-600 mt-1">{dueDateError}</Text>
-            ) : null}
-            {dueDate ? (
-              <Pressable onPress={() => { setDueDate(''); setDueDateError(''); }} className="mt-1">
-                <Text className="text-xs text-gray-400">Clear date</Text>
-              </Pressable>
+            ) : touched.dueDate && !dueDate ? (
+              <Text className="text-xs text-red-600 mt-1">Due date is required</Text>
             ) : null}
           </View>
 

@@ -116,7 +116,7 @@ export function TaskUpdateScreen() {
         type: 'ADD_AUDIT',
         entry: {
           taskId: task.id, role: 'System',
-          message: `▶ Task started on ${today} by ${curName} (${curRoleLabel}). Status: Open → In Progress.`,
+          message: `▶ Task started on ${today} by ${curName} (${curRoleLabel}). Status: Open → Active.`,
           createdAt: now, dateTag: today, updateType: 'Status',
         },
       });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -430,14 +430,22 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               <Button title={isSubmittingStatus ? 'Saving...' : 'Approve Task'} onPress={handleApprove} color={color} disabled={isSubmittingStatus} />
             )}
             {canVerify && (
-              <Button title={isSubmittingStatus ? 'Saving...' : 'Verify & Close'} onPress={() => Alert.alert(
-                'Verify & Close?',
-                'Are you sure you want to verify and close this task?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Verify', onPress: handleVerify },
-                ]
-              )} color={color} disabled={isSubmittingStatus} />
+              <Button title={isSubmittingStatus ? 'Saving...' : 'Verify & Close'} onPress={() => {
+                if (Platform.OS === 'web') {
+                  if (window.confirm('Are you sure you want to verify and close this task?')) {
+                    handleVerify();
+                  }
+                } else {
+                  Alert.alert(
+                    'Verify & Close?',
+                    'Are you sure you want to verify and close this task?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Verify', onPress: handleVerify },
+                    ]
+                  );
+                }
+              }} color={color} disabled={isSubmittingStatus} />
             )}
             {canReject && !showReject && (
               <Button title="Request Rework" onPress={() => setShowReject(true)} variant="danger" disabled={isSubmittingStatus} />
@@ -463,14 +471,22 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
                   />
                   <Button
                     title="Send to Rework"
-                    onPress={() => Alert.alert(
-                      'Request Rework?',
-                      'This will send the task back for rework.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Send to Rework', style: 'destructive', onPress: handleRework },
-                      ]
-                    )}
+                    onPress={() => {
+                      if (Platform.OS === 'web') {
+                        if (window.confirm('This will send the task back for rework. Continue?')) {
+                          handleRework();
+                        }
+                      } else {
+                        Alert.alert(
+                          'Request Rework?',
+                          'This will send the task back for rework.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Send to Rework', style: 'destructive', onPress: handleRework },
+                          ]
+                        );
+                      }
+                    }}
                     variant="danger"
                     size="md"
                     className="flex-1"

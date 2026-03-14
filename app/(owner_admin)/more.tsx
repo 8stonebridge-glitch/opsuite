@@ -113,11 +113,16 @@ export default function OwnerMoreScreen() {
             variant="outline"
             onPress={() => {
               const doSignOut = async () => {
-                if (!state.isDemo) {
-                  await authClient.signOut();
+                try {
+                  if (!state.isDemo) {
+                    await authClient.signOut();
+                  }
+                } catch (e) {
+                  console.warn('Sign-out error (continuing):', e);
+                } finally {
+                  dispatch({ type: 'SIGN_OUT' });
+                  router.replace('/(auth)/sign-in');
                 }
-                dispatch({ type: 'SIGN_OUT' });
-                router.replace('/(auth)/sign-in');
               };
 
               if (Platform.OS === 'web') {

@@ -1,11 +1,29 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIndustryColor } from '../../src/store/selectors';
+import { ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useApp } from '../../src/store/AppContext';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
 
 export default function EmployeeLayout() {
   const insets = useSafeAreaInsets();
   const color = useIndustryColor();
+  const { state } = useApp();
+  const { authEnabled, isLoaded, isSignedIn } = useBackendAuth();
+
+  if (!state.isAuthenticated && authEnabled && isLoaded && isSignedIn) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#059669" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!state.isAuthenticated) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
 
   return (
     <Tabs

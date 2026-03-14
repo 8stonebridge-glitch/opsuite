@@ -536,7 +536,7 @@ export const updateStatus = mutation({
         taskId: task._id,
         actorMembershipId: membership._id,
         type: "Status",
-        message: `▶ Task started on ${today} by ${user.name} (${mapRole(membership.role)}). Status: Open → In Progress.`,
+        message: `▶ Task started on ${today} by ${user.name} (${mapRole(membership.role)}). Status: Open → Active.`,
         createdAt: now,
       });
     }

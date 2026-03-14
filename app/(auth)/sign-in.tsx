@@ -292,6 +292,7 @@ export default function SignInScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="off"
             />
             <Input
               label="Password"
