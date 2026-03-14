@@ -14,7 +14,8 @@ const trustedOrigins = [
   'http://localhost:8081',
   'http://localhost:19006',
   'http://localhost:8088',
-];
+  process.env.CONVEX_SITE_URL,
+].filter(Boolean) as string[];
 
 async function sendEmailViaResend({
   to,
