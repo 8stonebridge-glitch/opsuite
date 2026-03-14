@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,16 @@ import { useApp } from '../../src/store/AppContext';
 import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { hashPassword, validateEmail } from '../../src/utils/auth';
+import { isBackendEnabled } from '../../src/lib/auth-convex-provider';
+
+// Clerk sign-in hook (only import when backend is enabled)
+let useSignIn: any = null;
+if (isBackendEnabled) {
+  try {
+    const clerk = require('@clerk/clerk-expo');
+    useSignIn = clerk.useSignIn;
+  } catch {}
+}
 
 export default function SignInScreen() {
   const { dispatch, findAccountByEmail } = useApp();
@@ -15,22 +25,51 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Clerk sign-in (only when backend enabled)
+  const clerkSignIn = useSignIn ? useSignIn() : null;
 
   const isValid = validateEmail(email) && password.length >= 1;
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     setError('');
-    const account = findAccountByEmail(email.trim());
-    if (!account) {
-      setError('No account found with this email');
-      return;
+    setLoading(true);
+
+    try {
+      if (isBackendEnabled && clerkSignIn?.signIn) {
+        // ── Clerk auth ──────────────────────────────────────────
+        const result = await clerkSignIn.signIn.create({
+          identifier: email.trim(),
+          password,
+        });
+
+        if (result.status === 'complete') {
+          await clerkSignIn.setActive({ session: result.createdSessionId });
+          router.replace('/');
+        } else {
+          setError('Sign-in incomplete. Please try again.');
+        }
+      } else {
+        // ── Local auth (demo mode) ──────────────────────────────
+        const account = findAccountByEmail(email.trim());
+        if (!account) {
+          setError('No account found with this email');
+          return;
+        }
+        if (account.passwordHash !== hashPassword(password)) {
+          setError('Incorrect password');
+          return;
+        }
+        dispatch({ type: 'SIGN_IN', accountId: account.id });
+        router.replace('/');
+      }
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.message || err?.message || 'Sign-in failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    if (account.passwordHash !== hashPassword(password)) {
-      setError('Incorrect password');
-      return;
-    }
-    dispatch({ type: 'SIGN_IN', accountId: account.id });
-    router.replace('/');
   };
 
   return (
@@ -84,11 +123,17 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
-          <Button
-            title="Sign In"
-            onPress={handleSignIn}
-            disabled={!isValid}
-          />
+          {loading ? (
+            <View className="items-center py-4">
+              <ActivityIndicator size="small" color="#059669" />
+            </View>
+          ) : (
+            <Button
+              title="Sign In"
+              onPress={handleSignIn}
+              disabled={!isValid}
+            />
+          )}
 
           {/* Sign-up link */}
           <Pressable
@@ -101,18 +146,20 @@ export default function SignInScreen() {
             </Text>
           </Pressable>
 
-          {/* Demo hint */}
-          <View className="mt-10 p-4 bg-gray-50 rounded-2xl">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Demo Account
-            </Text>
-            <Text className="text-sm text-gray-500">
-              Email: <Text className="font-medium text-gray-700">owner@opsuite.demo</Text>
-            </Text>
-            <Text className="text-sm text-gray-500 mt-1">
-              Password: <Text className="font-medium text-gray-700">demo1234</Text>
-            </Text>
-          </View>
+          {/* Demo hint (only in local mode) */}
+          {!isBackendEnabled && (
+            <View className="mt-10 p-4 bg-gray-50 rounded-2xl">
+              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Demo Account
+              </Text>
+              <Text className="text-sm text-gray-500">
+                Email: <Text className="font-medium text-gray-700">owner@opsuite.demo</Text>
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                Password: <Text className="font-medium text-gray-700">demo1234</Text>
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

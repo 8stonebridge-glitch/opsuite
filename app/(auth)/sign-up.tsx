@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,17 @@ import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { INDUSTRIES } from '../../src/constants/industries';
 import { hashPassword, validateEmail, validatePassword } from '../../src/utils/auth';
+import { isBackendEnabled } from '../../src/lib/auth-convex-provider';
 import type { Industry } from '../../src/types';
+
+// Clerk sign-up hook (only import when backend is enabled)
+let useSignUp: any = null;
+if (isBackendEnabled) {
+  try {
+    const clerk = require('@clerk/clerk-expo');
+    useSignUp = clerk.useSignUp;
+  } catch {}
+}
 
 export default function SignUpScreen() {
   const { dispatch, findAccountByEmail } = useApp();
@@ -21,6 +31,10 @@ export default function SignUpScreen() {
   const [industry, setIndustry] = useState<Industry | null>(null);
   const [orgStructure, setOrgStructure] = useState<'with_subadmins' | 'admin_only'>('with_subadmins');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Clerk sign-up (only when backend enabled)
+  const clerkSignUp = useSignUp ? useSignUp() : null;
 
   const isValid =
     name.trim().length >= 2 &&
@@ -29,24 +43,62 @@ export default function SignUpScreen() {
     orgName.trim().length >= 2 &&
     industry !== null;
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     setError('');
+    setLoading(true);
 
-    if (findAccountByEmail(email.trim())) {
-      setError('An account with this email already exists');
-      return;
+    try {
+      if (isBackendEnabled && clerkSignUp?.signUp) {
+        // ── Clerk auth ──────────────────────────────────────────
+        const result = await clerkSignUp.signUp.create({
+          firstName: name.trim().split(' ')[0],
+          lastName: name.trim().split(' ').slice(1).join(' ') || undefined,
+          emailAddress: email.trim().toLowerCase(),
+          password,
+        });
+
+        if (result.status === 'complete') {
+          await clerkSignUp.setActive({ session: result.createdSessionId });
+          // Create org via Convex (dispatch routes to createOrg mutation)
+          dispatch({
+            type: 'SIGN_UP',
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+            passwordHash: '',
+            orgName: orgName.trim(),
+            industry: industry!,
+            orgStructure,
+          });
+          router.replace('/(owner_admin)/overview');
+        } else if (result.status === 'missing_requirements') {
+          setError('Please check your email to verify your account');
+        } else {
+          setError('Sign-up incomplete. Please try again.');
+        }
+      } else {
+        // ── Local auth ──────────────────────────────────────────
+        if (findAccountByEmail(email.trim())) {
+          setError('An account with this email already exists');
+          return;
+        }
+
+        dispatch({
+          type: 'SIGN_UP',
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          passwordHash: hashPassword(password),
+          orgName: orgName.trim(),
+          industry: industry!,
+          orgStructure,
+        });
+        router.replace('/(owner_admin)/overview');
+      }
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.message || err?.message || 'Sign-up failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-
-    dispatch({
-      type: 'SIGN_UP',
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      passwordHash: hashPassword(password),
-      orgName: orgName.trim(),
-      industry: industry!,
-      orgStructure,
-    });
-    router.replace('/(owner_admin)/overview');
   };
 
   return (
@@ -197,11 +249,17 @@ export default function SignUpScreen() {
             </View>
           ) : null}
 
-          <Button
-            title="Create Account"
-            onPress={handleSignUp}
-            disabled={!isValid}
-          />
+          {loading ? (
+            <View className="items-center py-4">
+              <ActivityIndicator size="small" color="#059669" />
+            </View>
+          ) : (
+            <Button
+              title="Create Account"
+              onPress={handleSignUp}
+              disabled={!isValid}
+            />
+          )}
 
           {/* Sign-in link */}
           <Pressable

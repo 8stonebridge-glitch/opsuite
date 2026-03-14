@@ -668,7 +668,7 @@ interface AppContextValue {
   findAccountByEmail: (email: string) => Account | undefined;
 }
 
-const AppContext = createContext<AppContextValue | null>(null);
+export const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [internal, dispatch] = useReducer(internalReducer, initialInternalState);
