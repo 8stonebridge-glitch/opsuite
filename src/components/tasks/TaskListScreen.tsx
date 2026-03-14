@@ -232,7 +232,7 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
     }
 
     if (filter === 'done') {
-      if (filteredTasks.length) return [{ title: 'Verified', data: filteredTasks }];
+      if (filteredTasks.length) return [{ title: 'Done', data: filteredTasks }];
       return [];
     }
 

@@ -51,6 +51,20 @@ export function NewTaskScreen() {
     isBackendMode ? {} : 'skip'
   );
 
+  // All hooks MUST be called before any early return (React Rules of Hooks)
+  const [title, setTitle] = useState('');
+  const [siteId, setSiteId] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [priority, setPriority] = useState<Priority | ''>('');
+  const [dueDate, setDueDate] = useState('');
+  const [note, setNote] = useState('');
+  const [error, setError] = useState('');
+  const [dueDateError, setDueDateError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   // Show loading state while backend data is hydrating
   if (isBackendMode && !state.isAuthenticated) {
     return (
@@ -69,19 +83,6 @@ export function NewTaskScreen() {
       </SafeAreaView>
     );
   }
-
-  const [title, setTitle] = useState('');
-  const [siteId, setSiteId] = useState('');
-  const [assigneeId, setAssigneeId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [priority, setPriority] = useState<Priority | ''>('');
-  const [dueDate, setDueDate] = useState('');
-  const [note, setNote] = useState('');
-  const [error, setError] = useState('');
-  const [dueDateError, setDueDateError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const siteOptions: SelectOption[] = state.onboarding.sites.map((s) => ({
     label: s.name,

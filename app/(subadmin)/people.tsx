@@ -49,7 +49,7 @@ export default function SubAdminPeopleScreen() {
       <RoleSwitcher />
       <View className="px-5 pt-4">
         <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
-          {team.name} Team · {team.members.length} members
+          {team.name} Team · {team.members.length} {team.members.length === 1 ? 'member' : 'members'}
         </Text>
       </View>
       <FlatList

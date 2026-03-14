@@ -200,7 +200,7 @@ function TeamHealthRow({
   return (
     <HealthCard
       title={teamName}
-      subtitle={`${leadName} · ${memberCount} people`}
+      subtitle={`${leadName} · ${memberCount} ${memberCount === 1 ? 'person' : 'people'}`}
       icon="people"
       iconColor={teamColor}
       stats={[

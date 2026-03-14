@@ -451,7 +451,7 @@ export default function OwnerPeopleScreen() {
                         {team.name}
                       </Text>
                       <Text className="text-xs text-gray-400 dark:text-gray-500">
-                        {allMembers.length} people · {teamActiveCount} active
+                        {allMembers.length} {allMembers.length === 1 ? 'person' : 'people'} · {teamActiveCount} active
                         {teamOverdueCount > 0
                           ? ` · ${teamOverdueCount} overdue`
                           : ''}
