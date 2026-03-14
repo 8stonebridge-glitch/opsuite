@@ -66,16 +66,19 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     return notifications.filter((n) => n.timestamp > seenAt).length;
   }, [notifications, seenAt]);
 
-  const openInbox = useCallback(() => {
-    setShowInbox(true);
-    if (seenKey) {
-      setSeenAtMap((prev) => ({ ...prev, [seenKey]: getNowISO() }));
-    }
+  const markInboxSeen = useCallback(() => {
+    if (!seenKey) return;
+    setSeenAtMap((prev) => ({ ...prev, [seenKey]: getNowISO() }));
   }, [seenKey]);
 
-  const closeInbox = useCallback(() => {
-    setShowInbox(false);
+  const openInbox = useCallback(() => {
+    setShowInbox(true);
   }, []);
+
+  const closeInbox = useCallback(() => {
+    markInboxSeen();
+    setShowInbox(false);
+  }, [markInboxSeen]);
 
   const value = useMemo<InboxContextValue>(
     () => ({ notifications, unreadCount, seenAt, showInbox, openInbox, closeInbox }),

@@ -9,6 +9,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppProvider } from '../src/store/AppContext';
 import { InboxProvider } from '../src/components/inbox/InboxProvider';
 import { InboxSheet } from '../src/components/inbox/InboxSheet';
+import { BackendProviders } from '../src/providers/BackendProviders';
+import { ClerkSessionBridge } from '../src/providers/ClerkSessionBridge';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -24,20 +26,23 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AppProvider>
-          <InboxProvider>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(onboarding)" />
-              <Stack.Screen name="(owner_admin)" />
-              <Stack.Screen name="(subadmin)" />
-              <Stack.Screen name="(employee)" />
-            </Stack>
-            <InboxSheet />
-          </InboxProvider>
-        </AppProvider>
+        <BackendProviders>
+          <AppProvider>
+            <ClerkSessionBridge />
+            <InboxProvider>
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(onboarding)" />
+                <Stack.Screen name="(owner_admin)" />
+                <Stack.Screen name="(subadmin)" />
+                <Stack.Screen name="(employee)" />
+              </Stack>
+              <InboxSheet />
+            </InboxProvider>
+          </AppProvider>
+        </BackendProviders>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

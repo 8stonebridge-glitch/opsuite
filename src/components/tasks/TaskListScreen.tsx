@@ -3,6 +3,8 @@ import { View, Text, Pressable, SectionList, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { RoleSwitcher } from '../layout/RoleSwitcher';
 import { SearchInput } from '../ui/SearchInput';
 import { TaskCard } from './TaskCard';
@@ -18,7 +20,8 @@ import {
   useTeams,
 } from '../../store/selectors';
 import { isOverdue } from '../../utils/date';
-import { isStalledTask } from '../../utils/task-helpers';
+import { consecutiveNoChangeWorkdays, isStalledTask } from '../../utils/task-helpers';
+import { useBackendAuth } from '../../providers/BackendProviders';
 import type { Task, Team } from '../../types';
 
 type GroupBy = 'status' | 'site' | 'team';
@@ -82,12 +85,20 @@ function compareTasks(a: Task, b: Task, key: string, dir: 'asc' | 'desc', teams:
 export function TaskListScreen({ basePath }: TaskListScreenProps) {
   const { state } = useApp();
   const router = useRouter();
+  const { clerkEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const teams = useTeams();
-  const allScoped = useScopedTasks();
-  const myAssigned = useMyAssignedTasks();
+  const localScoped = useScopedTasks();
+  const localAssigned = useMyAssignedTasks();
+  const backendTaskLists = useQuery(
+    api.tasks.listForCurrentScope,
+    !state.isDemo && clerkEnabled ? {} : 'skip'
+  );
 
   const isManager = state.role === 'admin' || state.role === 'subadmin';
+  const isBackendMode = !state.isDemo && clerkEnabled;
+  const allScoped = isBackendMode ? backendTaskLists?.scopedTasks || [] : localScoped;
+  const myAssigned = isBackendMode ? backendTaskLists?.myAssignedTasks || [] : localAssigned;
   const [scope, setScope] = useState<'assigned' | 'all'>('assigned');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterValue>('active');
@@ -98,6 +109,21 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
   const [tableVisibleCount, setTableVisibleCount] = useState(PAGE_SIZE);
 
   const baseTasks = isManager ? (scope === 'assigned' ? myAssigned : allScoped) : allScoped;
+  const stalledThreshold = state.orgSettings.noChangeAlertWorkdays;
+
+  const getStalledDays = useCallback(
+    (task: Task) => {
+      if (typeof task.stalledDays === 'number') return task.stalledDays;
+      return consecutiveNoChangeWorkdays(
+        task.id,
+        task.assigneeId,
+        state.audit,
+        new Date().toISOString().split('T')[0],
+        state.availability
+      );
+    },
+    [state.audit, state.availability]
+  );
 
   // Search filter
   const searched = useMemo(() => {
@@ -162,10 +188,13 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
 
     // Default: status subsections
     if (filter === 'active') {
-      const threshold = state.orgSettings.noChangeAlertWorkdays;
       const overdueTasks = filteredTasks.filter((t) => isOverdue(t.due, t.status));
       const stalledTasks = filteredTasks.filter(
-        (t) => !isOverdue(t.due, t.status) && isStalledTask(t, state.audit, threshold)
+        (t) =>
+          !isOverdue(t.due, t.status) &&
+          (typeof t.stalledDays === 'number'
+            ? t.stalledDays >= stalledThreshold
+            : isStalledTask(t, state.audit, stalledThreshold, state.availability))
       );
       const stalledIds = new Set(stalledTasks.map((t) => t.id));
       const reworkTasks = filteredTasks.filter(
@@ -197,7 +226,7 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
     }
 
     return [];
-  }, [filteredTasks, filter, groupBy]);
+  }, [filteredTasks, filter, groupBy, stalledThreshold, state.audit, state.availability]);
 
   // ── Table mode: sorted flat list ─────────────────────────────────────
   const sortedTasks = useMemo(() => {
@@ -320,7 +349,13 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
             sections={sections}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TaskCard task={item} onPress={() => goToDetail(item.id)} />
+              <TaskCard
+                task={item}
+                onPress={() => goToDetail(item.id)}
+                stalledDays={
+                  getStalledDays(item) >= stalledThreshold ? getStalledDays(item) : undefined
+                }
+              />
             )}
             renderSectionHeader={({ section }) => (
               <View className="flex-row items-center gap-2 mb-2 mt-1">
@@ -337,7 +372,13 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
               </View>
             )}
             renderSectionFooter={() => <View className="h-3" />}
-            ListEmptyComponent={<EmptyState icon="clipboard-outline" title="No tasks" />}
+            ListEmptyComponent={
+              isBackendMode && backendTaskLists === undefined ? (
+                <EmptyState icon="sync-outline" title="Loading tasks..." />
+              ) : (
+                <EmptyState icon="clipboard-outline" title="No tasks" />
+              )
+            }
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100 }}
             stickySectionHeadersEnabled={false}
@@ -362,7 +403,13 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
                 isLast={index === visibleTableTasks.length - 1 && sortedTasks.length <= tableVisibleCount}
               />
             )}
-            ListEmptyComponent={<EmptyState icon="clipboard-outline" title="No tasks" />}
+            ListEmptyComponent={
+              isBackendMode && backendTaskLists === undefined ? (
+                <EmptyState icon="sync-outline" title="Loading tasks..." />
+              ) : (
+                <EmptyState icon="clipboard-outline" title="No tasks" />
+              )
+            }
             ListFooterComponent={
               sortedTasks.length > tableVisibleCount ? (
                 <Pressable

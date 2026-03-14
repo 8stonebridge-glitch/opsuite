@@ -2,6 +2,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useClerk } from '@clerk/expo';
 import { useApp } from '../../src/store/AppContext';
 import { useCurrentName, useMyTeam, useIndustryColor } from '../../src/store/selectors';
 import { Card } from '../../src/components/ui/Card';
@@ -11,6 +12,7 @@ import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 
 export default function SubAdminMoreScreen() {
   const { state, dispatch } = useApp();
+  const { signOut } = useClerk();
   const name = useCurrentName();
   const team = useMyTeam();
   const color = useIndustryColor();
@@ -57,7 +59,10 @@ export default function SubAdminMoreScreen() {
           <Button
             title="Sign Out"
             variant="outline"
-            onPress={() => {
+            onPress={async () => {
+              if (!state.isDemo) {
+                await signOut();
+              }
               dispatch({ type: 'SIGN_OUT' });
               router.replace('/');
             }}
@@ -80,10 +85,20 @@ function SettingRow({
   last?: boolean;
 }) {
   return (
-    <View className={`flex-row items-center gap-3 py-3 ${last ? '' : 'border-b border-gray-100'}`}>
+    <View
+      className={`flex-row gap-3 py-3 ${last ? '' : 'border-b border-gray-100'}`}
+      style={{ alignItems: 'flex-start' }}
+    >
       <Ionicons name={icon as any} size={18} color="#9ca3af" />
-      <Text className="text-sm text-gray-700 flex-1">{label}</Text>
-      <Text className="text-sm text-gray-400">{value}</Text>
+      <Text className="text-sm text-gray-700 flex-1" style={{ paddingRight: 8, minWidth: 0 }}>
+        {label}
+      </Text>
+      <Text
+        className="text-sm text-gray-400 text-right"
+        style={{ maxWidth: '46%', flexShrink: 1, flexWrap: 'wrap' }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }

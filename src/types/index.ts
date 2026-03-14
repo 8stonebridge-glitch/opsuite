@@ -26,6 +26,7 @@ export interface Team {
   id: string;
   name: string;
   color: string;
+  siteId?: string;
   lead: Employee;
   members: Employee[];
 }
@@ -55,9 +56,11 @@ export interface Task {
   lastActivityAt?: string;
   // ── Delegation ──
   accountableLeadId?: string;   // subadmin responsible for delivery
+  accountableLeadName?: string;
   delegatedAt?: string;         // ISO timestamp when delegated to employee
   // ── Stalled detection ──
   lastNoChangeAt?: string;      // last "No Change" event date
+  stalledDays?: number;
 }
 
 export interface AuditEntry {
@@ -132,6 +135,7 @@ export interface Account {
   email: string;
   passwordHash: string;
   isDemo: boolean;
+  clerkUserId?: string | null;
 }
 
 // ── Derived UI enums (computed, not stored in state) ──────────────────

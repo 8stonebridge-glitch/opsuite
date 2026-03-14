@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
 import {
   useTaskAudit,
@@ -12,6 +14,7 @@ import {
   useMyTeam,
   useAllEmployees,
 } from '../../store/selectors';
+import { useBackendAuth } from '../../providers/BackendProviders';
 import { StatusBadge, PriorityBadge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -28,11 +31,24 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { state, dispatch } = useApp();
+  const { clerkEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const curName = useCurrentName();
   const curRoleLabel = useCurrentRoleLabel();
-  const task = state.tasks.find((t) => t.id === id);
-  const audit = useTaskAudit(id || '');
+  const localTask = state.tasks.find((t) => t.id === id);
+  const localAudit = useTaskAudit(id || '');
+  const isBackendMode = !state.isDemo && clerkEnabled;
+  const backendDetail = useQuery(
+    api.tasks.getDetail,
+    isBackendMode && id ? { taskId: id as never } : 'skip'
+  );
+  const addNoteMutation = useMutation(api.tasks.addNote);
+  const delegateTask = useMutation(api.tasks.delegate);
+  const approvePendingTask = useMutation(api.tasks.approvePending);
+  const verifyTask = useMutation(api.tasks.verify);
+  const requestRework = useMutation(api.tasks.requestRework);
+  const task = isBackendMode ? backendDetail?.task : localTask;
+  const audit = isBackendMode ? backendDetail?.audit || [] : localAudit;
 
   const myTeam = useMyTeam();
   const allEmployees = useAllEmployees();
@@ -41,6 +57,16 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const [showReject, setShowReject] = useState(false);
   const [showDelegate, setShowDelegate] = useState(false);
   const [delegateToId, setDelegateToId] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isBackendMode && backendDetail === undefined) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+        <Text className="text-gray-400">Loading task...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!task) {
     return (
@@ -65,14 +91,17 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const hasStatusTransitions = getNextStatuses(task.status, state.role).length > 0;
   // Show Update Status button unless dedicated buttons (approve/verify/reject) already cover it
   const canUpdate = hasStatusTransitions && !canApprove && !canVerify;
-  const showDelegateBtn = task && canDelegateTask(task, state.userId || '', state.role);
+  const showDelegateBtn = isBackendMode
+    ? Boolean(backendDetail?.canDelegate)
+    : task && canDelegateTask(task, state.userId || '', state.role);
 
   // Get accountable lead name
-  const accountableLead = task?.accountableLeadId
-    ? task.accountableLeadId === 'admin'
-      ? state.onboarding.adminName
-      : allEmployees.find((e) => e.id === task.accountableLeadId)?.name
-    : null;
+  const accountableLead = task?.accountableLeadName
+    || (task?.accountableLeadId
+      ? task.accountableLeadId === 'admin'
+        ? state.onboarding.adminName
+        : allEmployees.find((e) => e.id === task.accountableLeadId)?.name
+      : null);
 
   // Delegate member options (subadmin's team members, excluding self)
   const delegateOptions: SelectOption[] = myTeam
@@ -80,9 +109,43 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
         .filter((m) => m.id !== state.userId)
         .map((m) => ({ label: m.name, value: m.id }))
     : [];
+  const backendDelegateOptions: SelectOption[] = (backendDetail?.teamMembers || []).map((member) => ({
+    label: member.name,
+    value: member.userId,
+  }));
+  const visibleDelegateOptions = isBackendMode ? backendDelegateOptions : delegateOptions;
 
   const handleDelegate = () => {
     if (!delegateToId || !task) return;
+    setError('');
+
+    if (isBackendMode) {
+      void (async () => {
+        setIsSubmitting(true);
+        try {
+          const target = backendDetail?.teamMembers?.find((member) => member.userId === delegateToId);
+          if (!target) {
+            throw new Error('That team member is not available for delegation yet.');
+          }
+          await delegateTask({
+            taskId: task.id as never,
+            assigneeMembershipId: target.membershipId as never,
+          });
+          setShowDelegate(false);
+          setDelegateToId('');
+        } catch (delegateError) {
+          setError(
+            delegateError instanceof Error
+              ? delegateError.message
+              : 'We could not delegate that task yet.'
+          );
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
+      return;
+    }
+
     const emp = allEmployees.find((e) => e.id === delegateToId);
     if (!emp) return;
     const now = getNowISO();
@@ -113,6 +176,26 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   };
 
   const handleApprove = () => {
+    setError('');
+    if (isBackendMode) {
+      void (async () => {
+        setIsSubmitting(true);
+        try {
+          await approvePendingTask({ taskId: task.id as never });
+          router.back();
+        } catch (approveError) {
+          setError(
+            approveError instanceof Error
+              ? approveError.message
+              : 'We could not approve that task yet.'
+          );
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
+      return;
+    }
+
     dispatch({ type: 'UPDATE_TASK', taskId: task.id, updates: { status: 'Open', approved: true } });
     dispatch({
       type: 'ADD_AUDIT',
@@ -126,6 +209,26 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   };
 
   const handleVerify = () => {
+    setError('');
+    if (isBackendMode) {
+      void (async () => {
+        setIsSubmitting(true);
+        try {
+          await verifyTask({ taskId: task.id as never });
+          router.back();
+        } catch (verifyError) {
+          setError(
+            verifyError instanceof Error
+              ? verifyError.message
+              : 'We could not verify that task yet.'
+          );
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
+      return;
+    }
+
     const wasLate = task.due && task.completedAt && task.completedAt > task.due;
     dispatch({
       type: 'UPDATE_TASK',
@@ -144,6 +247,30 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   };
 
   const handleRework = () => {
+    setError('');
+    if (isBackendMode) {
+      void (async () => {
+        setIsSubmitting(true);
+        try {
+          await requestRework({
+            taskId: task.id as never,
+            reason: rejectReason || 'Rework required',
+          });
+          setShowReject(false);
+          router.back();
+        } catch (reworkError) {
+          setError(
+            reworkError instanceof Error
+              ? reworkError.message
+              : 'We could not request rework yet.'
+          );
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
+      return;
+    }
+
     dispatch({
       type: 'REWORK_TASK',
       taskId: task.id,
@@ -157,6 +284,30 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
 
   const addNote = () => {
     if (!noteText.trim()) return;
+    setError('');
+
+    if (isBackendMode) {
+      void (async () => {
+        setIsSubmitting(true);
+        try {
+          await addNoteMutation({
+            taskId: task.id as never,
+            message: noteText.trim(),
+          });
+          setNoteText('');
+        } catch (noteError) {
+          setError(
+            noteError instanceof Error
+              ? noteError.message
+              : 'We could not add that note yet.'
+          );
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
+      return;
+    }
+
     dispatch({
       type: 'ADD_AUDIT',
       entry: {
@@ -239,7 +390,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
                 <Select
                   label=""
                   placeholder="Select team member"
-                  options={delegateOptions}
+                  options={visibleDelegateOptions}
                   value={delegateToId}
                   onChange={setDelegateToId}
                 />
@@ -257,7 +408,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
                     color="#6366f1"
                     size="md"
                     className="flex-1"
-                    disabled={!delegateToId}
+                    disabled={!delegateToId || isSubmitting}
                   />
                 </View>
               </Card>
@@ -265,17 +416,23 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
           </View>
         )}
 
+        {error ? (
+          <Card className="mx-5 mt-4">
+            <Text className="text-sm text-red-600">{error}</Text>
+          </Card>
+        ) : null}
+
         {/* Action buttons */}
         {(canApprove || canVerify || canReject || canUpdate) && (
           <View className="mx-5 mt-4 gap-2">
             {canApprove && (
-              <Button title="Approve Task" onPress={handleApprove} color={color} />
+              <Button title={isSubmitting ? 'Saving...' : 'Approve Task'} onPress={handleApprove} color={color} disabled={isSubmitting} />
             )}
             {canVerify && (
-              <Button title="Verify & Close" onPress={handleVerify} color={color} />
+              <Button title={isSubmitting ? 'Saving...' : 'Verify & Close'} onPress={handleVerify} color={color} disabled={isSubmitting} />
             )}
             {canReject && !showReject && (
-              <Button title="Request Rework" onPress={() => setShowReject(true)} variant="danger" />
+              <Button title="Request Rework" onPress={() => setShowReject(true)} variant="danger" disabled={isSubmitting} />
             )}
             {showReject && (
               <Card>
@@ -302,15 +459,17 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
                     variant="danger"
                     size="md"
                     className="flex-1"
+                    disabled={isSubmitting}
                   />
                 </View>
               </Card>
             )}
             {canUpdate && (
               <Button
-                title="Update Status"
+                title={isSubmitting ? 'Saving...' : 'Update Status'}
                 onPress={() => router.push(updatePath.replace('[id]', task.id) as any)}
                 color={color}
+                disabled={isSubmitting}
               />
             )}
           </View>
@@ -329,8 +488,8 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
             />
             <Pressable
               onPress={addNote}
-              disabled={!noteText.trim()}
-              className={`px-4 rounded-xl items-center justify-center ${!noteText.trim() ? 'opacity-20' : ''}`}
+              disabled={!noteText.trim() || isSubmitting}
+              className={`px-4 rounded-xl items-center justify-center ${!noteText.trim() || isSubmitting ? 'opacity-20' : ''}`}
               style={{ backgroundColor: color }}
             >
               <Ionicons name="send" size={16} color="white" />

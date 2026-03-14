@@ -3,6 +3,8 @@ import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
 import {
   useCurrentName,
@@ -11,6 +13,7 @@ import {
   useMyTeam,
   useAllEmployees,
 } from '../../store/selectors';
+import { useBackendAuth } from '../../providers/BackendProviders';
 import { Select, type SelectOption } from '../ui/Select';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
@@ -21,11 +24,17 @@ import type { Task, Priority } from '../../types';
 export function NewTaskScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
+  const { clerkEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const sitesLabel = useSitesLabel();
   const curName = useCurrentName();
   const myTeam = useMyTeam();
   const allEmployees = useAllEmployees();
+  const createTask = useMutation(api.tasks.create);
+  const membershipDirectory = useQuery(
+    api.memberships.listForActiveOrganization,
+    !state.isDemo && clerkEnabled ? {} : 'skip'
+  );
 
   const [title, setTitle] = useState('');
   const [siteId, setSiteId] = useState('');
@@ -34,6 +43,8 @@ export function NewTaskScreen() {
   const [priority, setPriority] = useState<Priority | ''>('');
   const [dueDate, setDueDate] = useState('');
   const [note, setNote] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const siteOptions: SelectOption[] = state.onboarding.sites.map((s) => ({
     label: s.name,
@@ -56,14 +67,22 @@ export function NewTaskScreen() {
     value: c.id,
   }));
 
+  const membershipByUserId = new Map(
+    (membershipDirectory || [])
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .map((entry) => [String(entry.user._id), entry])
+  );
+
   const isValid = title.trim() && siteId && assigneeId && priority;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isValid) return;
     const site = state.onboarding.sites.find((s) => s.id === siteId);
     const emp = allEmployees.find((e) => e.id === assigneeId);
     const cat = state.categories.find((c) => c.id === categoryId);
     if (!emp) return;
+
+    setError('');
 
     const taskId = uid();
     const today = getToday();
@@ -84,49 +103,83 @@ export function NewTaskScreen() {
       accountableLeadId = state.userId || undefined;
     }
 
-    const task: Task = {
-      id: taskId,
-      title: title.trim(),
-      site: site?.name || '',
-      siteId,
-      category: cat?.name,
-      priority: priority as Priority,
-      due: dueDate || null,
-      assignee: emp.name,
-      assigneeId,
-      teamId: emp.teamId,
-      status: 'Open',
-      assignedBy: curName,
-      assignedByRole: state.role,
-      note: note.trim() || undefined,
-      approved: true,
-      createdAt: today,
-      accountableLeadId,
-      // If subadmin assigns directly to employee, mark as delegated
-      delegatedAt: state.role === 'subadmin' ? now : undefined,
-    };
+    if (!state.isDemo && clerkEnabled) {
+      setIsSubmitting(true);
 
-    dispatch({ type: 'ADD_TASK', task });
-    dispatch({
-      type: 'ADD_AUDIT',
-      entry: {
-        taskId, role: 'System',
-        message: `Task assigned to ${emp.name} by ${curName}.${dueDate ? ` Due date: ${dueDate}.` : ''}`,
-        createdAt: now, dateTag: today, updateType: 'Assignment',
-      },
-    });
-    if (note.trim()) {
+      try {
+        const assigneeMembership = membershipByUserId.get(assigneeId);
+        const accountableLeadMembership =
+          accountableLeadId === 'admin'
+            ? membershipDirectory?.find((entry) => entry?.membership.role === 'owner_admin')
+            : membershipByUserId.get(accountableLeadId || '');
+
+        if (!assigneeMembership || !accountableLeadMembership) {
+          throw new Error('This person is not synced to the active organization yet.');
+        }
+
+        await createTask({
+          title: title.trim(),
+          description: cat?.name,
+          priority: priority as Priority,
+          siteId: siteId as never,
+          teamId: emp.teamId as never,
+          assignedToMembershipId: String(assigneeMembership.membership._id) as never,
+          accountableLeadMembershipId: String(accountableLeadMembership.membership._id) as never,
+          dueDate: dueDate || undefined,
+          note: note.trim() || undefined,
+        });
+
+        router.back();
+        return;
+      } catch (submitError) {
+        setError(submitError instanceof Error ? submitError.message : 'We could not create that task yet.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      const task: Task = {
+        id: taskId,
+        title: title.trim(),
+        site: site?.name || '',
+        siteId,
+        category: cat?.name,
+        priority: priority as Priority,
+        due: dueDate || null,
+        assignee: emp.name,
+        assigneeId,
+        teamId: emp.teamId,
+        status: 'Open',
+        assignedBy: curName,
+        assignedByRole: state.role,
+        note: note.trim() || undefined,
+        approved: true,
+        createdAt: today,
+        accountableLeadId,
+        delegatedAt: state.role === 'subadmin' ? now : undefined,
+      };
+
+      dispatch({ type: 'ADD_TASK', task });
       dispatch({
         type: 'ADD_AUDIT',
         entry: {
-          taskId, role: state.role === 'admin' ? 'Admin' : 'SubAdmin',
-          message: note.trim(),
-          createdAt: now, dateTag: today, updateType: 'Instruction',
+          taskId, role: 'System',
+          message: `Task assigned to ${emp.name} by ${curName}.${dueDate ? ` Due date: ${dueDate}.` : ''}`,
+          createdAt: now, dateTag: today, updateType: 'Assignment',
         },
       });
-    }
+      if (note.trim()) {
+        dispatch({
+          type: 'ADD_AUDIT',
+          entry: {
+            taskId, role: state.role === 'admin' ? 'Admin' : 'SubAdmin',
+            message: note.trim(),
+            createdAt: now, dateTag: today, updateType: 'Instruction',
+          },
+        });
+      }
 
-    router.back();
+      router.back();
+    }
   };
 
   return (
@@ -136,12 +189,12 @@ export function NewTaskScreen() {
           <Text className="text-base text-gray-400">Cancel</Text>
         </Pressable>
         <Text className="text-base font-bold text-gray-900">Assign task</Text>
-        <Pressable onPress={handleSubmit} disabled={!isValid}>
+        <Pressable onPress={() => void handleSubmit()} disabled={!isValid || isSubmitting}>
           <Text
-            className={`text-base font-bold ${!isValid ? 'text-gray-300' : ''}`}
-            style={isValid ? { color } : undefined}
+            className={`text-base font-bold ${!isValid || isSubmitting ? 'text-gray-300' : ''}`}
+            style={isValid && !isSubmitting ? { color } : undefined}
           >
-            Done
+            {isSubmitting ? 'Saving...' : 'Done'}
           </Text>
         </Pressable>
       </View>
@@ -244,6 +297,10 @@ export function NewTaskScreen() {
               textAlignVertical="top"
             />
           </View>
+
+          {error ? (
+            <Text className="text-sm text-red-600">{error}</Text>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>

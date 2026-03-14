@@ -1,27 +1,278 @@
-import { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, Pressable, ScrollView, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useEmployeeSummaries, useAllEmployeePerformances, useSubadminPerformance, useTeams, useAvailability } from '../../src/store/selectors';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { useEmployeeSummaries, useAllEmployeePerformances, useTeams, useAvailability } from '../../src/store/selectors';
 import { getActiveAvailability } from '../../src/utils/availability-helpers';
 import { getToday } from '../../src/utils/date';
-import type { Team } from '../../src/types';
+import type { Role, Team } from '../../src/types';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Card } from '../../src/components/ui/Card';
 import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 import { EmployeeSummaryCard } from '../../src/components/people/EmployeeSummaryCard';
 import { ScoreBadge } from '../../src/components/performance/ScoreBadge';
+import { Select } from '../../src/components/ui/Select';
+import { Button } from '../../src/components/ui/Button';
+import { useApp } from '../../src/store/AppContext';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { useIndustryColor } from '../../src/store/selectors';
+import { uid } from '../../src/utils/id';
 
 const PREVIEW_LIMIT = 8;
 
+interface LeadOption {
+  label: string;
+  value: string;
+  userId?: string;
+  userName?: string;
+}
+
+type MemberRoleOption = 'subadmin' | 'employee';
+
 export default function OwnerPeopleScreen() {
+  const { state, dispatch } = useApp();
   const teams = useTeams();
+  const color = useIndustryColor();
   const summaries = useEmployeeSummaries();
   const allPerfs = useAllEmployeePerformances();
   const availability = useAvailability();
   const today = getToday();
+  const { clerkEnabled } = useBackendAuth();
+  const createTeam = useMutation(api.teams.create);
+  const createProvisionedMember = useMutation(api.memberships.createProvisionedMember);
+  const membershipDirectory = useQuery(
+    api.memberships.listForActiveOrganization,
+    !state.isDemo && clerkEnabled ? {} : 'skip'
+  );
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [teamName, setTeamName] = useState('');
+  const [teamColor, setTeamColor] = useState('#6366f1');
+  const [teamSiteId, setTeamSiteId] = useState(state.onboarding.sites[0]?.id || '');
+  const [teamLeadMembershipId, setTeamLeadMembershipId] = useState('');
+  const [demoLeadName, setDemoLeadName] = useState('');
+  const [teamError, setTeamError] = useState('');
+  const [isSavingTeam, setIsSavingTeam] = useState(false);
+  const [showCreateMember, setShowCreateMember] = useState(false);
+  const [memberRole, setMemberRole] = useState<MemberRoleOption>('employee');
+  const [memberName, setMemberName] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberTeamId, setMemberTeamId] = useState('');
+  const [memberSiteId, setMemberSiteId] = useState(state.onboarding.sites[0]?.id || '');
+  const [memberError, setMemberError] = useState('');
+  const [isSavingMember, setIsSavingMember] = useState(false);
+
+  const leadOptions = useMemo<LeadOption[]>(() => {
+    const existingLeadIds = new Set(teams.map((team) => team.lead.id));
+
+    if (state.isDemo) {
+      return teams.map((team) => ({
+        label: `${team.lead.name} · ${team.name}`,
+        value: team.lead.id,
+      }));
+    }
+
+    return (membershipDirectory || [])
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .filter((entry) => entry.membership.role === 'subadmin')
+      .filter((entry) => !existingLeadIds.has(String(entry.user._id)))
+      .map((entry) => ({
+        label: entry.user.name,
+        value: String(entry.membership._id),
+        userId: String(entry.user._id),
+        userName: entry.user.name,
+      }));
+  }, [membershipDirectory, state.isDemo, teams]);
+
+  const canCreateRealTeam = state.isDemo || leadOptions.length > 0;
+  const teamOptions = teams.map((team) => ({
+    label: team.name,
+    value: team.id,
+  }));
+
+  const handleCreateMember = async () => {
+    const trimmedName = memberName.trim();
+    const normalizedEmail = memberEmail.trim().toLowerCase();
+
+    if (trimmedName.length < 2) {
+      setMemberError('Enter a name with at least 2 characters.');
+      return;
+    }
+
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      setMemberError('Enter a valid email address.');
+      return;
+    }
+
+    if (memberRole === 'employee' && !memberTeamId) {
+      setMemberError('Choose the team this employee belongs to.');
+      return;
+    }
+
+    setMemberError('');
+    setIsSavingMember(true);
+
+    try {
+      if (state.isDemo) {
+        if (memberRole === 'subadmin') {
+          setMemberError('In demo mode, create a new lead with Add Team. Real accounts can provision subadmins directly.');
+          return;
+        }
+
+        const selectedTeam = teams.find((team) => team.id === memberTeamId);
+        if (!selectedTeam) {
+          setMemberError('Select a valid team first.');
+          return;
+        }
+
+        const nextEmployeeId = uid();
+        dispatch({
+          type: 'ADD_MEMBER_TO_TEAM',
+          teamId: selectedTeam.id,
+          member: {
+            id: nextEmployeeId,
+            name: trimmedName,
+            role: 'employee',
+            teamId: selectedTeam.id,
+            teamName: selectedTeam.name,
+          },
+        });
+      } else {
+        const selectedTeam = teams.find((team) => team.id === memberTeamId);
+        const siteIds =
+          memberRole === 'employee'
+            ? [
+                selectedTeam?.siteId || memberSiteId,
+              ].filter(Boolean)
+            : [memberSiteId].filter(Boolean);
+
+        const result = await createProvisionedMember({
+          name: trimmedName,
+          email: normalizedEmail,
+          role: memberRole,
+          siteIds: siteIds as never,
+          teamIds: memberRole === 'employee' ? [memberTeamId] as never : ([] as never),
+        });
+
+        if (memberRole === 'employee' && result?.user && selectedTeam) {
+          dispatch({
+            type: 'ADD_MEMBER_TO_TEAM',
+            teamId: selectedTeam.id,
+            member: {
+              id: String(result.user._id),
+              name: result.user.name,
+              role: 'employee',
+              teamId: selectedTeam.id,
+              teamName: selectedTeam.name,
+            },
+          });
+        }
+      }
+
+      setMemberName('');
+      setMemberEmail('');
+      setMemberTeamId('');
+      setMemberSiteId(state.onboarding.sites[0]?.id || '');
+      setMemberRole('employee');
+      setShowCreateMember(false);
+    } catch (error) {
+      setMemberError(error instanceof Error ? error.message : 'We could not create that person yet.');
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
+
+  const handleCreateTeam = async () => {
+    const trimmedTeamName = teamName.trim();
+
+    if (trimmedTeamName.length < 2) {
+      setTeamError('Enter a team name with at least 2 characters.');
+      return;
+    }
+
+    if (!teamSiteId) {
+      setTeamError('Choose the site this team belongs to.');
+      return;
+    }
+
+    if (state.isDemo) {
+      if (demoLeadName.trim().length < 2) {
+        setTeamError('Enter a lead name for this demo team.');
+        return;
+      }
+    } else if (!teamLeadMembershipId) {
+      setTeamError('Select a subadmin lead before creating the team.');
+      return;
+    }
+
+    setTeamError('');
+    setIsSavingTeam(true);
+
+    try {
+      if (state.isDemo) {
+        const nextTeamId = uid();
+        dispatch({
+          type: 'ADD_TEAM',
+          team: {
+            id: nextTeamId,
+            name: trimmedTeamName,
+            color: teamColor,
+            siteId: teamSiteId,
+            lead: {
+              id: uid(),
+              name: demoLeadName.trim(),
+              role: 'subadmin',
+              teamId: nextTeamId,
+              teamName: trimmedTeamName,
+            },
+            members: [],
+          },
+        });
+      } else {
+        const selectedLead = leadOptions.find((option) => option.value === teamLeadMembershipId);
+        const createdTeam = await createTeam({
+          name: trimmedTeamName,
+          color: teamColor,
+          siteId: teamSiteId as never,
+          subadminMembershipId: teamLeadMembershipId as never,
+        });
+
+        if (createdTeam && selectedLead) {
+          dispatch({
+            type: 'ADD_TEAM',
+            team: {
+              id: String(createdTeam._id),
+              name: createdTeam.name,
+              color: createdTeam.color || teamColor,
+              siteId: createdTeam.siteId ? String(createdTeam.siteId) : teamSiteId,
+              lead: {
+                id: selectedLead.userId || uid(),
+                name: selectedLead.userName || 'Lead',
+                role: 'subadmin',
+                teamId: String(createdTeam._id),
+                teamName: createdTeam.name,
+              },
+              members: [],
+            },
+          });
+        }
+      }
+
+      setTeamName('');
+      setTeamColor('#6366f1');
+      setTeamLeadMembershipId('');
+      setDemoLeadName('');
+      setTeamSiteId(state.onboarding.sites[0]?.id || '');
+      setShowCreateTeam(false);
+    } catch (error) {
+      setTeamError(error instanceof Error ? error.message : 'We could not create that team yet.');
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
@@ -33,9 +284,31 @@ export default function OwnerPeopleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 pt-4">
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Teams
-          </Text>
+          <View className="flex-row items-center justify-between gap-3 mb-3">
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-1">
+              Teams
+            </Text>
+            <View className="flex-row items-center gap-2">
+              <Pressable
+                onPress={() => setShowCreateMember(true)}
+                className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-gray-200"
+              >
+                <Ionicons name="person-add" size={16} color={color} />
+                <Text className="text-xs font-semibold" style={{ color }}>
+                  Add Person
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowCreateTeam(true)}
+                className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-gray-200"
+              >
+                <Ionicons name="add" size={16} color={color} />
+                <Text className="text-xs font-semibold" style={{ color }}>
+                  Add Team
+                </Text>
+              </Pressable>
+            </View>
+          </View>
 
           {teams.map((team) => {
             const isExpanded = expandedTeam === team.id;
@@ -154,6 +427,232 @@ export default function OwnerPeopleScreen() {
           })}
         </View>
       </ScrollView>
+
+      <Modal visible={showCreateMember} transparent animationType="slide">
+        <Pressable className="flex-1 bg-black/30" onPress={() => setShowCreateMember(false)} />
+        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-10">
+          <View className="flex-row items-center justify-between mb-5">
+            <Text className="text-base font-bold text-gray-900">Add Person</Text>
+            <Pressable onPress={() => setShowCreateMember(false)}>
+              <Ionicons name="close" size={22} color="#6b7280" />
+            </Pressable>
+          </View>
+
+          <Select
+            label="Role"
+            placeholder="Choose a role"
+            options={[
+              { label: state.isDemo ? 'Employee' : 'Employee', value: 'employee' },
+              ...(!state.isDemo ? [{ label: 'Subadmin', value: 'subadmin' }] : []),
+            ]}
+            value={memberRole}
+            onChange={(value) => {
+              setMemberRole(value as MemberRoleOption);
+              setMemberError('');
+            }}
+          />
+
+          <View className="mt-4">
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Full Name
+            </Text>
+            <TextInput
+              className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900 mb-4"
+              placeholder="Ada Nwobi"
+              value={memberName}
+              onChangeText={(text) => {
+                setMemberName(text);
+                setMemberError('');
+              }}
+              placeholderTextColor="#d1d5db"
+            />
+
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Work Email
+            </Text>
+            <TextInput
+              className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900"
+              placeholder="ada@company.com"
+              value={memberEmail}
+              onChangeText={(text) => {
+                setMemberEmail(text);
+                setMemberError('');
+              }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholderTextColor="#d1d5db"
+            />
+          </View>
+
+          <View className="mt-4">
+            <Select
+              label={memberRole === 'employee' ? 'Team' : 'Primary Site'}
+              placeholder={
+                memberRole === 'employee'
+                  ? teamOptions.length > 0
+                    ? 'Choose a team'
+                    : 'Create a team first'
+                  : 'Choose a site'
+              }
+              options={
+                memberRole === 'employee'
+                  ? teamOptions
+                  : state.onboarding.sites.map((site) => ({
+                      label: site.name,
+                      value: site.id,
+                    }))
+              }
+              value={memberRole === 'employee' ? memberTeamId : memberSiteId}
+              onChange={(value) => {
+                if (memberRole === 'employee') {
+                  setMemberTeamId(value);
+                } else {
+                  setMemberSiteId(value);
+                }
+                setMemberError('');
+              }}
+            />
+          </View>
+
+          <Text className="text-sm text-gray-400 leading-6 mt-5">
+            {memberRole === 'employee'
+              ? 'Employees are attached to a real team immediately so they show up in people, team, and task views.'
+              : 'Subadmins become available as assignable team leads right away. Later, when they sign in with Clerk, the app will claim their provisioned record by email.'}
+          </Text>
+
+          {memberError ? (
+            <Text className="text-sm text-red-600 mt-4">{memberError}</Text>
+          ) : null}
+
+          <View className="mt-5">
+            <Button
+              title={isSavingMember ? 'Creating person...' : 'Create Person'}
+              onPress={() => void handleCreateMember()}
+              disabled={isSavingMember || (memberRole === 'employee' && teamOptions.length === 0)}
+              color={color}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showCreateTeam} transparent animationType="slide">
+        <Pressable className="flex-1 bg-black/30" onPress={() => setShowCreateTeam(false)} />
+        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-10">
+          <View className="flex-row items-center justify-between mb-5">
+            <Text className="text-base font-bold text-gray-900">Add Team</Text>
+            <Pressable onPress={() => setShowCreateTeam(false)}>
+              <Ionicons name="close" size={22} color="#6b7280" />
+            </Pressable>
+          </View>
+
+          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Team Name
+          </Text>
+          <TextInput
+            className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900 mb-4"
+            placeholder="Operations North"
+            value={teamName}
+            onChangeText={(text) => {
+              setTeamName(text);
+              setTeamError('');
+            }}
+            placeholderTextColor="#d1d5db"
+          />
+
+          <Select
+            label="Site"
+            placeholder="Choose a site"
+            options={state.onboarding.sites.map((site) => ({
+              label: site.name,
+              value: site.id,
+            }))}
+            value={teamSiteId}
+            onChange={(value) => {
+              setTeamSiteId(value);
+              setTeamError('');
+            }}
+          />
+
+          <View className="mt-4">
+            {state.isDemo ? (
+              <>
+                <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Lead Name
+                </Text>
+                <TextInput
+                  className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900"
+                  placeholder="Enter a lead name"
+                  value={demoLeadName}
+                  onChangeText={(text) => {
+                    setDemoLeadName(text);
+                    setTeamError('');
+                  }}
+                  placeholderTextColor="#d1d5db"
+                />
+              </>
+            ) : (
+              <Select
+                label="Subadmin Lead"
+                placeholder={
+                  leadOptions.length > 0
+                    ? 'Choose a lead'
+                    : 'Invite a subadmin first'
+                }
+                options={leadOptions}
+                value={teamLeadMembershipId}
+                onChange={(value) => {
+                  setTeamLeadMembershipId(value);
+                  setTeamError('');
+                }}
+              />
+            )}
+          </View>
+
+          <View className="mt-4">
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Team Color
+            </Text>
+            <View className="flex-row flex-wrap gap-3">
+              {['#6366f1', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2'].map((swatch) => {
+                const selected = teamColor === swatch;
+                return (
+                  <Pressable
+                    key={swatch}
+                    onPress={() => setTeamColor(swatch)}
+                    className={`w-10 h-10 rounded-full items-center justify-center ${selected ? 'border-2 border-gray-900' : ''}`}
+                    style={{ backgroundColor: swatch }}
+                  >
+                    {selected ? <Ionicons name="checkmark" size={16} color="white" /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {!state.isDemo && !canCreateRealTeam ? (
+            <Text className="text-sm text-gray-400 leading-6 mt-5">
+              This org does not have any available subadmins yet. Create or invite a subadmin first, then you can attach that lead to a new team.
+            </Text>
+          ) : (
+            <Text className="text-sm text-gray-400 leading-6 mt-5">
+              Teams show up in owner, subadmin, and employee views. We keep the lead attached at creation so the team has a clear owner from day one.
+            </Text>
+          )}
+
+          {teamError ? (
+            <Text className="text-sm text-red-600 mt-4">{teamError}</Text>
+          ) : null}
+
+          <View className="mt-5">
+            <Button
+              title={isSavingTeam ? 'Creating team...' : 'Create Team'}
+              onPress={() => void handleCreateTeam()}
+              disabled={isSavingTeam || (!state.isDemo && !canCreateRealTeam)}
+              color={color}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
