@@ -1,5 +1,6 @@
 import React, { type ReactNode } from 'react';
-import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
+import { View, ActivityIndicator, Platform } from 'react-native';
+import { ClerkProvider, useAuth, useClerk } from '@clerk/clerk-expo';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexReactClient } from 'convex/react';
 import { tokenCache } from './clerk-token-cache';
@@ -21,6 +22,28 @@ export const isBackendEnabled =
   !!convexClient;
 
 /**
+ * Inner component that waits for Clerk to load before rendering Convex provider.
+ * Uses useClerk().loaded instead of <ClerkLoaded> to avoid blocking forever on web.
+ */
+function ClerkConvexBridge({ children }: { children: ReactNode }) {
+  const clerk = useClerk();
+
+  if (!clerk.loaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#059669" />
+      </View>
+    );
+  }
+
+  return (
+    <ConvexProviderWithClerk client={convexClient!} useAuth={useAuth}>
+      {children}
+    </ConvexProviderWithClerk>
+  );
+}
+
+/**
  * Wraps children with Clerk + Convex providers when real keys are set.
  * Falls back to passthrough when keys are placeholders (local dev mode).
  */
@@ -31,12 +54,13 @@ export function AuthConvexProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ClerkProvider publishableKey={CLERK_KEY} tokenCache={tokenCache}>
-      <ClerkLoaded>
-        <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
-          {children}
-        </ConvexProviderWithClerk>
-      </ClerkLoaded>
+    <ClerkProvider
+      publishableKey={CLERK_KEY}
+      tokenCache={Platform.OS !== 'web' ? tokenCache : undefined}
+    >
+      <ClerkConvexBridge>
+        {children}
+      </ClerkConvexBridge>
     </ClerkProvider>
   );
 }

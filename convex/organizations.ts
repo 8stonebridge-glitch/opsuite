@@ -46,7 +46,14 @@ export const create = mutation({
 export const listMine = query({
   args: {},
   handler: async (ctx) => {
-    const { user } = await getAuthUser(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+    if (!user) return [];
 
     const memberships = await ctx.db
       .query('memberships')

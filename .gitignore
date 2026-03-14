@@ -13,3 +13,4 @@ web-build/
 .env.production
 .DS_Store
 *.tsbuildinfo
+.vercel
