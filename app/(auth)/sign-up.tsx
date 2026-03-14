@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,15 @@ import { useOwnerSessionBootstrap } from '../../src/hooks/useOwnerSessionBootstr
 import { useApp } from '../../src/store/AppContext';
 import type { Industry } from '../../src/types';
 
+// Clerk sign-up hook (only import when backend is enabled)
+let useSignUp: any = null;
+if (isBackendEnabled) {
+  try {
+    const clerk = require('@clerk/clerk-expo');
+    useSignUp = clerk.useSignUp;
+  } catch {}
+}
+
 export default function SignUpScreen() {
   const router = useRouter();
   const { dispatch } = useApp();
@@ -27,6 +36,7 @@ export default function SignUpScreen() {
   const createOrganization = useMutation(api.organizations.create);
   const bootstrapOwnerSession = useOwnerSessionBootstrap();
 
+  // ── Form state ──────────────────────────────────────────────────
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,6 +58,7 @@ export default function SignUpScreen() {
     if (!isLoaded || !signUp) return;
 
     setError('');
+    setLoading(true);
 
     if (name.trim().length < 2) {
       setError('Enter your full name to continue.');
@@ -173,6 +184,110 @@ export default function SignUpScreen() {
     }
   };
 
+  // ── Resend verification code ────────────────────────────────────
+  const handleResend = async () => {
+    setError('');
+    try {
+      await clerkSignUp.signUp.prepareEmailAddressVerification({
+        strategy: 'email_code',
+      });
+      setError('New code sent! Check your email.');
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.message || 'Failed to resend code';
+      setError(msg);
+    }
+  };
+
+  // ════════════════════════════════════════════════════════════════
+  // RENDER: Email verification step
+  // ════════════════════════════════════════════════════════════════
+  if (pendingVerification) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Back to form */}
+            <Pressable
+              onPress={() => { setPendingVerification(false); setVerificationCode(''); setError(''); }}
+              className="flex-row items-center gap-1 mb-6"
+            >
+              <Ionicons name="arrow-back" size={18} color="#9ca3af" />
+              <Text className="text-sm text-gray-400">Back</Text>
+            </Pressable>
+
+            {/* Icon */}
+            <View className="items-center mb-8">
+              <View className="w-16 h-16 rounded-3xl bg-emerald-100 items-center justify-center mb-4">
+                <Ionicons name="mail-outline" size={32} color="#059669" />
+              </View>
+              <Text className="text-2xl font-bold tracking-tight text-gray-900">
+                Verify your email
+              </Text>
+              <Text className="text-base text-gray-400 mt-2 text-center">
+                We sent a verification code to{'\n'}
+                <Text className="font-medium text-gray-700">{email}</Text>
+              </Text>
+            </View>
+
+            {/* Code input */}
+            <View className="gap-4 mb-6">
+              <Input
+                label="Verification Code"
+                placeholder="Enter 6-digit code"
+                value={verificationCode}
+                onChangeText={(t) => { setVerificationCode(t); setError(''); }}
+                keyboardType="number-pad"
+                autoFocus
+              />
+            </View>
+
+            {error ? (
+              <View className="flex-row items-center gap-2 mb-4 px-1">
+                <Ionicons name="alert-circle" size={16} color={error.includes('sent') ? '#059669' : '#dc2626'} />
+                <Text className={`text-sm ${error.includes('sent') ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {error}
+                </Text>
+              </View>
+            ) : null}
+
+            {loading ? (
+              <View className="items-center py-4">
+                <ActivityIndicator size="small" color="#059669" />
+              </View>
+            ) : (
+              <Button
+                title="Verify Email"
+                onPress={handleVerify}
+                disabled={verificationCode.trim().length < 4}
+              />
+            )}
+
+            {/* Resend link */}
+            <Pressable
+              onPress={handleResend}
+              className="mt-6 items-center"
+            >
+              <Text className="text-sm text-gray-400">
+                Didn't receive a code?{' '}
+                <Text className="text-emerald-600 font-semibold">Resend</Text>
+              </Text>
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // RENDER: Sign-up form (Step 1)
+  // ════════════════════════════════════════════════════════════════
   return (
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView

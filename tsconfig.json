@@ -7,5 +7,11 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"],
+  "exclude": [
+    "convex/*.ts",
+    "convex/shared.ts",
+    "convex/helpers.ts",
+    "convex/auth.config.ts"
+  ]
 }
