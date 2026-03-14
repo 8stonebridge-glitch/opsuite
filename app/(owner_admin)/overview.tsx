@@ -1,5 +1,8 @@
-import { ScrollView, View, Text } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAction } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
 import {
   useBucketedTasks,
@@ -22,9 +25,11 @@ import { ScoreBadge } from '../../src/components/performance/ScoreBadge';
 import { AvailabilityRequestCard } from '../../src/components/availability/AvailabilityRequestCard';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
 
 export default function OwnerOverviewScreen() {
   const { state } = useApp();
+  const { authEnabled, email, fullName } = useBackendAuth();
   const color = useIndustryColor();
   const teams = useTeams();
   const { active, review } = useBucketedTasks();
@@ -33,6 +38,28 @@ export default function OwnerOverviewScreen() {
   const pendingRequests = usePendingRequests();
   const awayToday = useAwayToday();
   const coverageNeeded = useCoverageNeeded();
+  const sendWelcomeTest = useAction(api.emails.sendWelcome);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [testEmailMessage, setTestEmailMessage] = useState('');
+
+  const handleSendTestEmail = async () => {
+    setTestEmailMessage('');
+    setIsSendingTestEmail(true);
+
+    try {
+      const result = await sendWelcomeTest({
+        email: email || undefined,
+        name: fullName || undefined,
+      });
+      setTestEmailMessage(`Test email sent to ${result.to}`);
+    } catch (error) {
+      setTestEmailMessage(
+        error instanceof Error ? error.message : 'We could not send the test email yet.'
+      );
+    } finally {
+      setIsSendingTestEmail(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
@@ -44,6 +71,40 @@ export default function OwnerOverviewScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 pt-4 gap-5">
+          {!state.isDemo && authEnabled ? (
+            <Card>
+              <View className="flex-row items-start gap-3">
+                <View className="w-10 h-10 rounded-2xl bg-emerald-50 items-center justify-center">
+                  <Text className="text-base">✉️</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-gray-900">
+                    Temporary Resend Test
+                  </Text>
+                  <Text className="text-xs text-gray-500 mt-1 leading-5">
+                    Send a welcome email to {email || 'your signed-in address'} using the new Convex action.
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => void handleSendTestEmail()}
+                disabled={isSendingTestEmail}
+                className="mt-4 py-3 rounded-2xl items-center"
+                style={{ backgroundColor: isSendingTestEmail ? '#e5e7eb' : color }}
+              >
+                <Text
+                  className="text-sm font-semibold"
+                  style={{ color: isSendingTestEmail ? '#9ca3af' : '#ffffff' }}
+                >
+                  {isSendingTestEmail ? 'Sending test email...' : 'Send test welcome email'}
+                </Text>
+              </Pressable>
+              {testEmailMessage ? (
+                <Text className="text-xs text-gray-500 mt-3 leading-5">{testEmailMessage}</Text>
+              ) : null}
+            </Card>
+          ) : null}
+
           <KpiRow
             items={[
               { label: 'Active', value: active.length, color },
