@@ -1,5 +1,5 @@
 import { createClient } from '@convex-dev/better-auth';
-import { convex } from '@convex-dev/better-auth/plugins';
+import { convex, crossDomain } from '@convex-dev/better-auth/plugins';
 import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import { components } from './_generated/api';
@@ -17,6 +17,8 @@ const trustedOrigins = [
   'https://opsuite.vercel.app',
   process.env.CONVEX_SITE_URL,
 ].filter(Boolean) as string[];
+
+const publicWebAppUrl = 'https://opsuite.vercel.app';
 
 async function sendEmailViaResend({
   to,
@@ -124,7 +126,11 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         });
       },
     },
-    plugins: [expo(), convex({ authConfig })],
+    plugins: [
+      expo(),
+      crossDomain({ siteUrl: publicWebAppUrl }),
+      convex({ authConfig }),
+    ],
   });
 
 export const { getAuthUser } = authComponent.clientApi();

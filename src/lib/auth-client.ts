@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createAuthClient } from 'better-auth/react';
 import { expoClient } from '@better-auth/expo/client';
-import { convexClient } from '@convex-dev/better-auth/client/plugins';
+import { convexClient, crossDomainClient } from '@convex-dev/better-auth/client/plugins';
 
 function deriveConvexSiteUrl(convexUrl?: string | null) {
   if (!convexUrl) return null;
@@ -20,9 +20,16 @@ export const emailVerificationCallbackUrl = authBaseUrl
   ? `${authBaseUrl.replace(/\/$/, '')}/email-confirmed`
   : 'http://localhost/email-confirmed';
 
-const authPlugins: [ReturnType<typeof convexClient>] | [ReturnType<typeof convexClient>, ReturnType<typeof expoClient>] =
+const authPlugins:
+  | [ReturnType<typeof convexClient>, ReturnType<typeof crossDomainClient>]
+  | [ReturnType<typeof convexClient>, ReturnType<typeof expoClient>] =
   Platform.OS === 'web'
-    ? [convexClient()]
+    ? [
+        convexClient(),
+        crossDomainClient({
+          storagePrefix: 'taskhub',
+        }),
+      ]
     : [
         convexClient(),
         expoClient({
