@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import * as Linking from 'expo-linking';
 import { createAuthClient } from 'better-auth/react';
 import { expoClient } from '@better-auth/expo/client';
 import { convexClient } from '@convex-dev/better-auth/client/plugins';
@@ -13,7 +14,9 @@ export const authBaseUrl =
   deriveConvexSiteUrl(process.env.EXPO_PUBLIC_CONVEX_URL?.trim()) ||
   null;
 
-export const emailVerificationCallbackUrl = 'taskhub://sign-in?verified=1';
+export const emailVerificationCallbackUrl = Linking.createURL('/sign-in', {
+  queryParams: { verified: '1' },
+});
 
 export const authClient = createAuthClient({
   baseURL: authBaseUrl || 'http://localhost',
