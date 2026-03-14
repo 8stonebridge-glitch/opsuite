@@ -51,11 +51,14 @@ export default function OwnerOverviewScreen() {
         email: email || undefined,
         name: fullName || undefined,
       });
-      setTestEmailMessage(`Test email sent to ${result.to}`);
+
+      if (result.ok) {
+        setTestEmailMessage(`Test email sent to ${result.to}`);
+      } else {
+        setTestEmailMessage(result.error);
+      }
     } catch (error) {
-      setTestEmailMessage(
-        error instanceof Error ? error.message : 'We could not send the test email yet.'
-      );
+      setTestEmailMessage(error instanceof Error ? error.message : 'We could not send the test email yet.');
     } finally {
       setIsSendingTestEmail(false);
     }

@@ -11,7 +11,7 @@ export const sendWelcome = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Unauthenticated");
+      return { ok: false, error: "Unauthenticated" as const };
     }
 
     const to =
@@ -19,7 +19,7 @@ export const sendWelcome = action({
       (typeof identity.email === "string" ? identity.email.trim().toLowerCase() : "");
 
     if (!to) {
-      throw new Error("No email address is available for this test send");
+      return { ok: false, error: "No email address is available for this test send" as const };
     }
 
     const name =
@@ -29,7 +29,7 @@ export const sendWelcome = action({
 
     const apiKey = process.env.RESEND_API_KEY?.trim();
     if (!apiKey) {
-      throw new Error("RESEND_API_KEY is not set in Convex");
+      return { ok: false, error: "RESEND_API_KEY is not set in Convex" as const };
     }
 
     const subject = "Welcome to TaskHub";
@@ -59,13 +59,16 @@ export const sendWelcome = action({
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`Failed to send welcome email: ${body || response.statusText}`);
+      return {
+        ok: false,
+        error: `Failed to send welcome email: ${body || response.statusText}`,
+      } as const;
     }
 
     const result = await response.json();
 
     return {
-      ok: true,
+      ok: true as const,
       to,
       id: result?.id ?? null,
     };
