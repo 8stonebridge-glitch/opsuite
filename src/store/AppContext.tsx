@@ -748,11 +748,18 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
 
   if (action.type === 'SIGN_OUT') {
     clearAuthHint();
+    // Full reset: clear all non-demo accounts and workspaces to prevent
+    // cross-account data leakage (SEC-CRIT-2)
     return {
-      ...internal,
+      accounts: internal.accounts.filter((a) => a.isDemo),
       currentAccountId: null,
+      workspaces: internal.workspaces.filter((w) =>
+        internal.accounts.some((a) => a.isDemo && a.id === w.ownerId)
+      ),
+      activeWorkspaceId: 'ws-apex',
       role: 'admin',
       userId: null,
+      onboardingComplete: true,
     };
   }
 

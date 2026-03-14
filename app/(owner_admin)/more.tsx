@@ -112,24 +112,24 @@ export default function OwnerMoreScreen() {
             title="Sign Out"
             variant="outline"
             onPress={() => {
-              const doSignOut = () => {
-                // Clear local state and navigate FIRST to avoid blank screen race condition
+              const doSignOut = async () => {
+                // Clear local state first to prevent blank screen
                 dispatch({ type: 'SIGN_OUT' });
-                router.replace('/(auth)/sign-in');
-                // Then clear auth session in background
+                // Await auth cookie clear to prevent auto-re-authentication
                 if (!state.isDemo) {
-                  authClient.signOut().catch((e) => console.warn('Sign-out error:', e));
+                  try { await authClient.signOut(); } catch (e) { console.warn('Sign-out error:', e); }
                 }
+                router.replace('/(auth)/sign-in');
               };
 
               if (Platform.OS === 'web') {
                 if (window.confirm('Are you sure you want to sign out?')) {
-                  doSignOut();
+                  void doSignOut();
                 }
               } else {
                 Alert.alert('Sign Out?', 'Are you sure you want to sign out?', [
                   { text: 'Cancel' },
-                  { text: 'Sign Out', style: 'destructive', onPress: doSignOut },
+                  { text: 'Sign Out', style: 'destructive', onPress: () => void doSignOut() },
                 ]);
               }
             }}

@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, Platform } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+// Lazy-load DateTimePicker to avoid crash on web where the native module isn't available
+const DateTimePicker = Platform.OS !== 'web'
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ? (require('@react-native-community/datetimepicker') as { default: typeof import('@react-native-community/datetimepicker').default }).default
+  : null;
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
@@ -38,11 +42,31 @@ export function NewTaskScreen() {
   const curName = useCurrentName();
   const myTeam = useMyTeam();
   const allEmployees = useAllEmployees();
+  const isBackendMode = !state.isDemo && authEnabled;
   const createTask = useMutation(api.tasks.create);
   const membershipDirectory = useQuery(
     api.memberships.listForActiveOrganization,
-    !state.isDemo && authEnabled ? {} : 'skip'
+    isBackendMode ? {} : 'skip'
   );
+
+  // Show loading state while backend data is hydrating
+  if (isBackendMode && !state.isAuthenticated) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color={color} />
+      </SafeAreaView>
+    );
+  }
+
+  // If org has no sites or employees yet, show helpful message instead of empty form
+  if (state.onboarding.sites.length === 0 && allEmployees.length === 0 && isBackendMode && membershipDirectory === undefined) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color={color} />
+        <Text className="text-sm text-gray-400 mt-4">Loading workspace data...</Text>
+      </SafeAreaView>
+    );
+  }
 
   const [title, setTitle] = useState('');
   const [siteId, setSiteId] = useState('');
@@ -147,7 +171,7 @@ export function NewTaskScreen() {
       accountableLeadId = state.userId || undefined;
     }
 
-    if (!state.isDemo && authEnabled) {
+    if (isBackendMode) {
       setIsSubmitting(true);
 
       try {
@@ -373,13 +397,13 @@ export function NewTaskScreen() {
                   </Text>
                   <Ionicons name="calendar-outline" size={20} color="#9ca3af" />
                 </Pressable>
-                {showDatePicker && (
+                {showDatePicker && DateTimePicker && (
                   <DateTimePicker
                     value={parseDateValue()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     minimumDate={new Date()}
-                    onChange={(_event, selectedDate) => {
+                    onChange={(_event: unknown, selectedDate?: Date) => {
                       setShowDatePicker(Platform.OS === 'ios');
                       if (selectedDate) {
                         handleDateChange(formatDate(selectedDate));

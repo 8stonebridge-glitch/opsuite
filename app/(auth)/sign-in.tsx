@@ -304,6 +304,7 @@ export default function SignInScreen() {
                 setNeedsEmailVerification(false);
               }}
               secureTextEntry
+              autoComplete="off"
             />
           </View>
 
