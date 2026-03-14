@@ -2,6 +2,9 @@
 
 This repo now uses Convex Auth with Better Auth for Expo.
 
+For the full record of setup mistakes, fixes, and the checklist to reuse on the next app, see:
+- `/Users/sunday/Desktop/codex test/opsuite/NEXT_APP_SETUP_NOTES.md`
+
 ## Required env
 
 Frontend (`.env` or `.env.local`):
