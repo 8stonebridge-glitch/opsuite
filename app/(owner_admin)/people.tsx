@@ -66,10 +66,19 @@ export default function OwnerPeopleScreen() {
   const [memberRole, setMemberRole] = useState<MemberRoleOption>('employee');
   const [memberName, setMemberName] = useState('');
   const [memberEmail, setMemberEmail] = useState('');
+  const [memberPassword, setMemberPassword] = useState('');
   const [memberTeamId, setMemberTeamId] = useState('');
   const [memberSiteId, setMemberSiteId] = useState(state.onboarding.sites[0]?.id || '');
   const [memberError, setMemberError] = useState('');
   const [isSavingMember, setIsSavingMember] = useState(false);
+  // Edit member state
+  const [editMember, setEditMember] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editError, setEditError] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const updateMember = useMutation(api.memberships.updateMember);
 
   const leadOptions = useMemo<LeadOption[]>(() => {
     const existingLeadIds = new Set(teams.map((team) => team.lead.id));
@@ -110,6 +119,11 @@ export default function OwnerPeopleScreen() {
 
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
       setMemberError('Enter a valid email address.');
+      return;
+    }
+
+    if (!state.isDemo && memberPassword.length > 0 && memberPassword.length < 6) {
+      setMemberError('Password must be at least 6 characters.');
       return;
     }
 
@@ -199,6 +213,22 @@ export default function OwnerPeopleScreen() {
           teamIds: teamIds as never,
         });
 
+        // Create auth account so the person can sign in immediately
+        if (memberPassword.length >= 6) {
+          try {
+            const siteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL || '';
+            if (siteUrl) {
+              await fetch(`${siteUrl}/admin/create-auth-account`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer admin' },
+                body: JSON.stringify({ name: trimmedName, email: normalizedEmail, password: memberPassword }),
+              });
+            }
+          } catch (e) {
+            console.warn('Auth account creation failed — user can still be set up later.', e);
+          }
+        }
+
         if (memberRole === 'employee' && result?.user && selectedTeam) {
           dispatch({
             type: 'ADD_MEMBER_TO_TEAM',
@@ -216,6 +246,7 @@ export default function OwnerPeopleScreen() {
 
       setMemberName('');
       setMemberEmail('');
+      setMemberPassword('');
       setMemberTeamId('');
       setMemberSiteId(state.onboarding.sites[0]?.id || '');
       setMemberRole('employee');
@@ -316,6 +347,81 @@ export default function OwnerPeopleScreen() {
     }
   };
 
+  const handleEditMember = async () => {
+    if (!editMember) return;
+
+    const trimmedName = editName.trim();
+    const normalizedEmail = editEmail.trim().toLowerCase();
+
+    if (trimmedName.length > 0 && trimmedName.length < 2) {
+      setEditError('Name must be at least 2 characters.');
+      return;
+    }
+
+    if (normalizedEmail && !normalizedEmail.includes('@')) {
+      setEditError('Enter a valid email address.');
+      return;
+    }
+
+    if (editPassword.length > 0 && editPassword.length < 6) {
+      setEditError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setEditError('');
+    setIsSavingEdit(true);
+
+    try {
+      const siteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL || '';
+
+      // Update name/email in Convex users table
+      if (trimmedName || normalizedEmail) {
+        await updateMember({
+          userId: editMember.id as never,
+          ...(trimmedName ? { name: trimmedName } : {}),
+          ...(normalizedEmail ? { email: normalizedEmail } : {}),
+        });
+      }
+
+      // Update email in Better Auth if changed
+      if (normalizedEmail && siteUrl) {
+        // We need the old email — look it up from the directory
+        const dirEntry = membershipDirectory?.find(
+          (entry) => entry && String(entry.user._id) === editMember.id,
+        );
+        const oldEmail = dirEntry?.user?.email || '';
+        if (oldEmail && oldEmail !== normalizedEmail) {
+          await fetch(`${siteUrl}/admin/update-auth-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldEmail, newEmail: normalizedEmail }),
+          });
+        }
+      }
+
+      // Update password in Better Auth if provided
+      if (editPassword.length >= 6 && siteUrl) {
+        const dirEntry = membershipDirectory?.find(
+          (entry) => entry && String(entry.user._id) === editMember.id,
+        );
+        const targetEmail = normalizedEmail || dirEntry?.user?.email || '';
+        if (targetEmail) {
+          await fetch(`${siteUrl}/admin/update-auth-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: targetEmail, newPassword: editPassword }),
+          });
+        }
+      }
+
+      setEditMember(null);
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Failed to save changes.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
@@ -392,6 +498,13 @@ export default function OwnerPeopleScreen() {
                     band={perf?.band}
                     topAction={perf?.actions[0]?.label}
                     availabilityBadge={availBadge}
+                    onPress={!state.isDemo ? () => {
+                      setEditMember({ id: emp.id, name: emp.name, email: '' });
+                      setEditName(emp.name);
+                      setEditEmail('');
+                      setEditPassword('');
+                      setEditError('');
+                    } : undefined}
                   />
                 );
               })}
@@ -502,6 +615,13 @@ export default function OwnerPeopleScreen() {
                           band={perf?.band}
                           topAction={perf?.actions[0]?.label}
                           availabilityBadge={availBadge}
+                          onPress={!state.isDemo ? () => {
+                            setEditMember({ id: member.id, name: member.name, email: '' });
+                            setEditName(member.name);
+                            setEditEmail('');
+                            setEditPassword('');
+                            setEditError('');
+                          } : undefined}
                         />
                       );
                     })}
@@ -570,7 +690,7 @@ export default function OwnerPeopleScreen() {
               Work Email
             </Text>
             <TextInput
-              className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100"
+              className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
               placeholder="ada@company.com"
               value={memberEmail}
               onChangeText={(text) => {
@@ -581,6 +701,25 @@ export default function OwnerPeopleScreen() {
               keyboardType="email-address"
               placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
             />
+
+            {!state.isDemo && (
+              <>
+                <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+                  Password
+                </Text>
+                <TextInput
+                  className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100"
+                  placeholder="Min. 6 characters"
+                  value={memberPassword}
+                  onChangeText={(text) => {
+                    setMemberPassword(text);
+                    setMemberError('');
+                  }}
+                  secureTextEntry
+                  placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
+                />
+              </>
+            )}
           </View>
 
           {/* In direct mode, team/site selection is optional */}
@@ -632,11 +771,13 @@ export default function OwnerPeopleScreen() {
           )}
 
           <Text className="text-sm text-gray-400 dark:text-gray-500 leading-6 mt-5">
-            {isDirect
-              ? 'This employee will report directly to you. You can optionally assign them to a team.'
-              : memberRole === 'employee'
-                ? 'Employees are attached to a real team immediately so they show up in people, team, and task views.'
-                : 'Subadmins become available as assignable team leads right away. Later, when they sign in, the app will claim their provisioned record by email.'}
+            {state.isDemo
+              ? (isDirect
+                ? 'This employee will report directly to you.'
+                : memberRole === 'employee'
+                  ? 'Employees are attached to a team immediately.'
+                  : 'Subadmins become team leads right away.')
+              : 'Set a password so this person can sign in immediately — no email confirmation needed.'}
           </Text>
 
           {memberError ? (
@@ -767,6 +908,72 @@ export default function OwnerPeopleScreen() {
               title={isSavingTeam ? 'Creating team...' : 'Create Team'}
               onPress={() => void handleCreateTeam()}
               disabled={isSavingTeam || (!state.isDemo && !canCreateRealTeam)}
+              color={color}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Edit Person Modal ── */}
+      <Modal visible={!!editMember} transparent animationType="slide">
+        <Pressable className="flex-1 bg-black/30" onPress={() => setEditMember(null)} />
+        <View className="bg-white dark:bg-gray-950 rounded-t-3xl px-5 pt-5 pb-10">
+          <View className="flex-row items-center justify-between mb-5">
+            <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Edit Person</Text>
+            <Pressable onPress={() => setEditMember(null)}>
+              <Ionicons name="close" size={22} color="#6b7280" />
+            </Pressable>
+          </View>
+
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+            Full Name
+          </Text>
+          <TextInput
+            className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
+            placeholder="Full name"
+            value={editName}
+            onChangeText={(text) => { setEditName(text); setEditError(''); }}
+            placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
+          />
+
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+            Email
+          </Text>
+          <TextInput
+            className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
+            placeholder="New email (leave empty to keep current)"
+            value={editEmail}
+            onChangeText={(text) => { setEditEmail(text); setEditError(''); }}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
+          />
+
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+            New Password
+          </Text>
+          <TextInput
+            className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100"
+            placeholder="Leave empty to keep current"
+            value={editPassword}
+            onChangeText={(text) => { setEditPassword(text); setEditError(''); }}
+            secureTextEntry
+            placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
+          />
+
+          <Text className="text-sm text-gray-400 dark:text-gray-500 leading-6 mt-4">
+            Only fill in the fields you want to change.
+          </Text>
+
+          {editError ? (
+            <Text className="text-sm text-red-600 mt-3">{editError}</Text>
+          ) : null}
+
+          <View className="mt-5">
+            <Button
+              title={isSavingEdit ? 'Saving...' : 'Save Changes'}
+              onPress={() => void handleEditMember()}
+              disabled={isSavingEdit}
               color={color}
             />
           </View>

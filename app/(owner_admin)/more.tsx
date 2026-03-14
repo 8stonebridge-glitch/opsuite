@@ -7,7 +7,7 @@ import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { authClient } from '../../src/lib/auth-client';
-import { useIndustryColor, useTeams, useAllEmployees } from '../../src/store/selectors';
+import { useIndustryColor, useTeams, useAllEmployees, useOrgMode } from '../../src/store/selectors';
 import { ThemeSwitcher } from '../../src/components/ui/ThemeSwitcher';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
@@ -19,9 +19,11 @@ export default function OwnerMoreScreen() {
   const { state, dispatch } = useApp();
   const { authEnabled } = useBackendAuth();
   const updateOrgSettings = useMutation(api.orgSettings.update);
+  const updateOrgMode = useMutation(api.organizations.updateMode);
   const color = useIndustryColor();
   const teams = useTeams();
   const allEmployees = useAllEmployees();
+  const orgMode = useOrgMode();
   const router = useRouter();
 
   const adjustSetting = async (key: 'noChangeAlertWorkdays' | 'reworkAlertCycles', delta: number) => {
@@ -97,7 +99,49 @@ export default function OwnerMoreScreen() {
             />
             <SettingRow icon="people" label="Teams" value={String(teams.length)} />
             <SettingRow icon="person" label="Employees" value={String(allEmployees.length)} />
-            <SettingRow icon="clipboard" label="Total Tasks" value={String(state.tasks.length)} last />
+            <SettingRow icon="clipboard" label="Total Tasks" value={String(state.tasks.length)} />
+
+            <View className="flex-row items-center gap-3 py-3">
+              <Ionicons name="git-branch-outline" size={18} color="#9ca3af" />
+              <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1">Org Mode</Text>
+              <View className="flex-row rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <Pressable
+                  onPress={() => {
+                    if (orgMode === 'managed') return;
+                    dispatch({ type: 'SET_ORG_MODE', mode: 'managed' });
+                    if (!state.isDemo && authEnabled) {
+                      void updateOrgMode({ mode: 'managed' }).catch((e: unknown) =>
+                        console.warn('Failed to update org mode', e)
+                      );
+                    }
+                  }}
+                  className={`px-3 py-1.5 ${orgMode === 'managed' ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-50 dark:bg-gray-800'}`}
+                >
+                  <Text className={`text-xs font-semibold ${orgMode === 'managed' ? 'text-white dark:text-gray-900' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Managed
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (orgMode === 'direct') return;
+                    dispatch({ type: 'SET_ORG_MODE', mode: 'direct' });
+                    if (!state.isDemo && authEnabled) {
+                      void updateOrgMode({ mode: 'direct' }).catch((e: unknown) =>
+                        console.warn('Failed to update org mode', e)
+                      );
+                    }
+                  }}
+                  className={`px-3 py-1.5 ${orgMode === 'direct' ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-50 dark:bg-gray-800'}`}
+                >
+                  <Text className={`text-xs font-semibold ${orgMode === 'direct' ? 'text-white dark:text-gray-900' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Direct
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+            <Text className="text-xs text-gray-400 dark:text-gray-500 -mt-1 ml-8 mb-1">
+              {orgMode === 'managed' ? 'Teams with subadmin leads' : 'Admin manages employees directly'}
+            </Text>
           </Card>
 
           <Card>

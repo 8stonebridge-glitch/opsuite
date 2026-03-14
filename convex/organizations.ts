@@ -187,3 +187,37 @@ export const active = query({
     };
   },
 });
+
+/** One-time backfill: set `mode` on orgs — patches ALL orgs to the given mode. */
+export const backfillMode = mutation({
+  args: {
+    mode: v.union(v.literal("managed"), v.literal("direct")),
+    force: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const all = await ctx.db.query("organizations").collect();
+    let patched = 0;
+    for (const org of all) {
+      if (args.force || (org as any).mode !== args.mode) {
+        await ctx.db.patch(org._id, { mode: args.mode, updatedAt: new Date().toISOString() });
+        patched++;
+      }
+    }
+    return { patched, total: all.length };
+  },
+});
+
+/** Update the mode of the caller's active organization. */
+export const updateMode = mutation({
+  args: {
+    mode: v.union(v.literal("managed"), v.literal("direct")),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireCurrentUser(ctx);
+    if (!user.activeOrganizationId) throw new Error("No active organization");
+    const org = await ctx.db.get(user.activeOrganizationId);
+    if (!org) throw new Error("Organization not found");
+    await ctx.db.patch(org._id, { mode: args.mode, updatedAt: new Date().toISOString() });
+    return { id: org._id, mode: args.mode };
+  },
+});

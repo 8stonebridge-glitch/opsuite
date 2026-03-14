@@ -244,6 +244,7 @@ function writeBackToWorkspace(
   if (after.onboarding.adminName !== before.onboarding.adminName) { newConfig.adminName = after.onboarding.adminName; configChanged = true; }
   if (after.onboarding.sites !== before.onboarding.sites) { newConfig.sites = after.onboarding.sites; configChanged = true; }
   if (after.orgSettings !== before.orgSettings) { newConfig.orgSettings = after.orgSettings; configChanged = true; }
+  if (after.orgMode !== before.orgMode) { newConfig.orgMode = after.orgMode; configChanged = true; }
 
   // Check data fields
   const newData: WorkspaceData = { ...ws.data };
@@ -522,6 +523,7 @@ export type AppAction =
   | { type: 'SET_CHECKINS'; checkIns: CheckIn[] }
   | { type: 'SET_CATEGORIES'; categories: Category[] }
   | { type: 'SET_ORG_SETTINGS'; settings: Partial<OrgSettings> }
+  | { type: 'SET_ORG_MODE'; mode: OrgMode }
   | { type: 'ADD_HANDOFF'; handoff: HandoffRecord }
   | { type: 'SET_HANDOFFS'; handoffs: HandoffRecord[] }
   | { type: 'REQUEST_AVAILABILITY'; record: AvailabilityRecord }
@@ -696,6 +698,8 @@ function flatReducer(state: AppState, action: Exclude<AppAction, InternalOnlyAct
       return { ...state, categories: action.categories };
     case 'SET_ORG_SETTINGS':
       return { ...state, orgSettings: { ...state.orgSettings, ...action.settings } };
+    case 'SET_ORG_MODE':
+      return { ...state, orgMode: action.mode };
     case 'ADD_HANDOFF':
       return { ...state, handoffs: [...state.handoffs, action.handoff] };
     case 'SET_HANDOFFS':

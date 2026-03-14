@@ -1,4 +1,4 @@
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../ui/Avatar';
 import { ScoreBadge } from '../performance/ScoreBadge';
@@ -16,6 +16,7 @@ interface Props {
   band?: ScoreBand;
   topAction?: string;
   availabilityBadge?: { label: string; color: string } | null;
+  onPress?: () => void;
 }
 
 function relativeTime(dateStr: string | null): string {
@@ -34,10 +35,12 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.floor(days / 7)}w ago`;
 }
 
-export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, score, band, topAction, availabilityBadge }: Props) {
+export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, score, band, topAction, availabilityBadge, onPress }: Props) {
   const { isDark } = useTheme();
+  const Wrapper = onPress ? Pressable : View;
   return (
-    <View
+    <Wrapper
+      {...(onPress ? { onPress } : {})}
       className={`flex-row items-center py-3 gap-3 ${last ? '' : 'border-b border-gray-100 dark:border-gray-800'}`}
     >
       <Avatar name={name} color={teamColor} size="sm" />
@@ -82,6 +85,6 @@ export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, sc
           }}
         />
       )}
-    </View>
+    </Wrapper>
   );
 }

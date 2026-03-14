@@ -72,7 +72,7 @@ export const createProvisionedMember = mutation({
     // In managed orgs employees must belong to a team; in direct orgs teams are optional
     if (args.role === "employee" && args.teamIds.length === 0) {
       const organization = await ctx.db.get(organizationId);
-      if (organization?.mode !== "direct") {
+      if ((organization?.mode ?? "managed") !== "direct") {
         throw new Error("Employees must belong to at least one team");
       }
     }
@@ -154,5 +154,37 @@ export const createProvisionedMember = mutation({
       user: await ctx.db.get(user._id),
       membership: await ctx.db.get(membershipId),
     };
+  },
+});
+
+/** Update an existing member's profile (name, email) — owner only */
+export const updateMember = mutation({
+  args: {
+    userId: v.id("users"),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId } = await requireOwnerMembership(ctx);
+
+    // Ensure the target user is in this org
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_organization_user", (q) =>
+        q.eq("organizationId", organizationId).eq("userId", args.userId),
+      )
+      .unique();
+
+    if (!membership || membership.status !== "active") {
+      throw new Error("User is not a member of this organization");
+    }
+
+    const now = new Date().toISOString();
+    const updates: Record<string, string> = { updatedAt: now };
+    if (args.name) updates.name = args.name.trim();
+    if (args.email) updates.email = args.email.trim().toLowerCase();
+
+    await ctx.db.patch(args.userId, updates);
+    return await ctx.db.get(args.userId);
   },
 });
