@@ -128,8 +128,13 @@ function computeMetrics(
       .map((c) => c.date)
   );
   const checkedWeekdays = availableWeekdays.filter((d) => checkedInDates.has(d));
+  // New employees with no tasks should start at 100 — only penalise check-in
+  // compliance once they actually have work assigned.
+  const hasAnyTasks = empTasks.length > 0;
   const checkInComplianceRate =
-    availableWeekdays.length > 0 ? checkedWeekdays.length / availableWeekdays.length : 1;
+    !hasAnyTasks ? 1
+    : availableWeekdays.length > 0 ? checkedWeekdays.length / availableWeekdays.length
+    : 1;
 
   // Update consistency: % of in-progress tasks with lastActivityAt within last 48h
   const inProgressTasks = empTasks.filter((t) => t.status === 'In Progress');
