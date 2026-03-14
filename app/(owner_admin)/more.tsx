@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,12 +111,21 @@ export default function OwnerMoreScreen() {
           <Button
             title="Sign Out"
             variant="outline"
-            onPress={async () => {
-              if (!state.isDemo) {
-                await authClient.signOut();
-              }
-              dispatch({ type: 'SIGN_OUT' });
-              router.replace('/');
+            onPress={() => {
+              Alert.alert('Sign Out?', 'Are you sure you want to sign out?', [
+                { text: 'Cancel' },
+                {
+                  text: 'Sign Out',
+                  style: 'destructive',
+                  onPress: async () => {
+                    if (!state.isDemo) {
+                      await authClient.signOut();
+                    }
+                    dispatch({ type: 'SIGN_OUT' });
+                    router.replace('/(auth)/sign-in');
+                  },
+                },
+              ]);
             }}
           />
         </View>

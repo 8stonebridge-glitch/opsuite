@@ -10,6 +10,7 @@ import { getToday } from '../../src/utils/date';
 import type { Role, Team } from '../../src/types';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Card } from '../../src/components/ui/Card';
+import { EmptyState } from '../../src/components/ui/EmptyState';
 import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 import { EmployeeSummaryCard } from '../../src/components/people/EmployeeSummaryCard';
 import { ScoreBadge } from '../../src/components/performance/ScoreBadge';
@@ -309,6 +310,14 @@ export default function OwnerPeopleScreen() {
               </Pressable>
             </View>
           </View>
+
+          {teams.length === 0 && (
+            <EmptyState
+              icon="people-outline"
+              title="No teams yet"
+              subtitle="Create a subadmin to get started."
+            />
+          )}
 
           {teams.map((team) => {
             const isExpanded = expandedTeam === team.id;

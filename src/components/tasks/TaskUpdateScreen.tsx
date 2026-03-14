@@ -17,6 +17,7 @@ import { getToday, getNowISO } from '../../utils/date';
 import { StatusBadge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { STATUS_DISPLAY } from '../../constants/statuses';
 import type { TaskStatus } from '../../types';
 
 export function TaskUpdateScreen() {
@@ -191,7 +192,7 @@ export function TaskUpdateScreen() {
                         : 'text-gray-500'
                     }`}
                   >
-                    {s}
+                    {STATUS_DISPLAY[s] || s}
                   </Text>
                 </Pressable>
               ))}

@@ -216,7 +216,7 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
       if (overdueTasks.length) groups.push({ title: 'Overdue', data: overdueTasks });
       if (stalledTasks.length) groups.push({ title: 'Stalled', data: stalledTasks });
       if (reworkTasks.length) groups.push({ title: 'Rework', data: reworkTasks });
-      if (normalTasks.length) groups.push({ title: 'In Progress', data: normalTasks });
+      if (normalTasks.length) groups.push({ title: 'Active', data: normalTasks });
       return groups;
     }
 

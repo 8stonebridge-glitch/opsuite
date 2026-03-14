@@ -13,6 +13,17 @@ export const STATUS_SHORT: Partial<Record<TaskStatus, string>> = {
   'In Progress': 'Active',
 };
 
+/** Map internal status values to user-facing display labels.
+ *  The internal value (e.g. "In Progress") is kept for data/backend;
+ *  this map provides the label shown in every UI surface.           */
+export const STATUS_DISPLAY: Record<TaskStatus, string> = {
+  Open: 'Open',
+  'In Progress': 'Active',
+  Completed: 'Completed',
+  'Pending Approval': 'Pending Approval',
+  Verified: 'Verified',
+};
+
 export const PRIORITY_COLORS: Record<string, string> = {
   critical: '#dc2626',
   medium: '#d97706',

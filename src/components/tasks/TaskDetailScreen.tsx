@@ -58,7 +58,8 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const [showDelegate, setShowDelegate] = useState(false);
   const [delegateToId, setDelegateToId] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
 
   if (isBackendMode && backendDetail === undefined) {
     return (
@@ -121,7 +122,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
 
     if (isBackendMode) {
       void (async () => {
-        setIsSubmitting(true);
+        setIsSubmittingStatus(true);
         try {
           const target = backendDetail?.teamMembers?.find((member) => member.userId === delegateToId);
           if (!target) {
@@ -140,7 +141,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               : 'We could not delegate that task yet.'
           );
         } finally {
-          setIsSubmitting(false);
+          setIsSubmittingStatus(false);
         }
       })();
       return;
@@ -179,7 +180,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
     setError('');
     if (isBackendMode) {
       void (async () => {
-        setIsSubmitting(true);
+        setIsSubmittingStatus(true);
         try {
           await approvePendingTask({ taskId: task.id as never });
           router.back();
@@ -190,7 +191,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               : 'We could not approve that task yet.'
           );
         } finally {
-          setIsSubmitting(false);
+          setIsSubmittingStatus(false);
         }
       })();
       return;
@@ -212,7 +213,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
     setError('');
     if (isBackendMode) {
       void (async () => {
-        setIsSubmitting(true);
+        setIsSubmittingStatus(true);
         try {
           await verifyTask({ taskId: task.id as never });
           router.back();
@@ -223,7 +224,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               : 'We could not verify that task yet.'
           );
         } finally {
-          setIsSubmitting(false);
+          setIsSubmittingStatus(false);
         }
       })();
       return;
@@ -250,7 +251,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
     setError('');
     if (isBackendMode) {
       void (async () => {
-        setIsSubmitting(true);
+        setIsSubmittingStatus(true);
         try {
           await requestRework({
             taskId: task.id as never,
@@ -265,7 +266,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               : 'We could not request rework yet.'
           );
         } finally {
-          setIsSubmitting(false);
+          setIsSubmittingStatus(false);
         }
       })();
       return;
@@ -288,7 +289,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
 
     if (isBackendMode) {
       void (async () => {
-        setIsSubmitting(true);
+        setIsSubmittingNote(true);
         try {
           await addNoteMutation({
             taskId: task.id as never,
@@ -302,7 +303,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               : 'We could not add that note yet.'
           );
         } finally {
-          setIsSubmitting(false);
+          setIsSubmittingNote(false);
         }
       })();
       return;
@@ -408,7 +409,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
                     color="#6366f1"
                     size="md"
                     className="flex-1"
-                    disabled={!delegateToId || isSubmitting}
+                    disabled={!delegateToId || isSubmittingStatus}
                   />
                 </View>
               </Card>
@@ -426,20 +427,20 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
         {(canApprove || canVerify || canReject || canUpdate) && (
           <View className="mx-5 mt-4 gap-2">
             {canApprove && (
-              <Button title={isSubmitting ? 'Saving...' : 'Approve Task'} onPress={handleApprove} color={color} disabled={isSubmitting} />
+              <Button title={isSubmittingStatus ? 'Saving...' : 'Approve Task'} onPress={handleApprove} color={color} disabled={isSubmittingStatus} />
             )}
             {canVerify && (
-              <Button title={isSubmitting ? 'Saving...' : 'Verify & Close'} onPress={() => Alert.alert(
+              <Button title={isSubmittingStatus ? 'Saving...' : 'Verify & Close'} onPress={() => Alert.alert(
                 'Verify & Close?',
                 'Are you sure you want to verify and close this task?',
                 [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Verify', onPress: handleVerify },
                 ]
-              )} color={color} disabled={isSubmitting} />
+              )} color={color} disabled={isSubmittingStatus} />
             )}
             {canReject && !showReject && (
-              <Button title="Request Rework" onPress={() => setShowReject(true)} variant="danger" disabled={isSubmitting} />
+              <Button title="Request Rework" onPress={() => setShowReject(true)} variant="danger" disabled={isSubmittingStatus} />
             )}
             {showReject && (
               <Card>
@@ -473,17 +474,17 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
                     variant="danger"
                     size="md"
                     className="flex-1"
-                    disabled={!rejectReason.trim() || isSubmitting}
+                    disabled={!rejectReason.trim() || isSubmittingStatus}
                   />
                 </View>
               </Card>
             )}
             {canUpdate && (
               <Button
-                title={isSubmitting ? 'Saving...' : 'Update Status'}
+                title={isSubmittingStatus ? 'Saving...' : 'Update Status'}
                 onPress={() => router.push(updatePath.replace('[id]', task.id) as any)}
                 color={color}
-                disabled={isSubmitting}
+                disabled={isSubmittingStatus}
               />
             )}
           </View>
@@ -502,8 +503,8 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
             />
             <Pressable
               onPress={addNote}
-              disabled={!noteText.trim() || isSubmitting}
-              className={`px-4 rounded-xl items-center justify-center ${!noteText.trim() || isSubmitting ? 'opacity-20' : ''}`}
+              disabled={!noteText.trim() || isSubmittingNote}
+              className={`px-4 rounded-xl items-center justify-center ${!noteText.trim() || isSubmittingNote ? 'opacity-20' : ''}`}
               style={{ backgroundColor: color }}
             >
               <Ionicons name="send" size={16} color="white" />

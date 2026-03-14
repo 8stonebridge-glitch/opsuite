@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +26,13 @@ export default function SignInScreen() {
   const [isClearingSession, setIsClearingSession] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [isRestoringWorkspace, setIsRestoringWorkspace] = useState(false);
+
+  useEffect(() => {
+    setEmail('');
+    setPassword('');
+    setError('');
+    setNeedsEmailVerification(false);
+  }, []);
 
   const normalizedEmail = email.trim().toLowerCase();
   const isDemoAccount = normalizedEmail === 'owner@opsuite.demo';
