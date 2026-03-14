@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../src/store/AppContext';
 import { authClient } from '../../src/lib/auth-client';
 import { useCurrentName, useMyTeam, useIndustryColor } from '../../src/store/selectors';
-import { useTheme } from '../../src/providers/ThemeProvider';
+import { ThemeSwitcher } from '../../src/components/ui/ThemeSwitcher';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
@@ -17,8 +17,6 @@ export default function SubAdminMoreScreen() {
   const team = useMyTeam();
   const color = useIndustryColor();
   const router = useRouter();
-  const { isDark, toggleTheme } = useTheme();
-
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
@@ -52,25 +50,14 @@ export default function SubAdminMoreScreen() {
             <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               App Settings
             </Text>
-            <SettingRow icon="notifications-outline" label="Notifications" value="Coming soon" />
-            <Pressable
-              onPress={toggleTheme}
-              className="flex-row gap-3 py-3 border-b border-gray-100 dark:border-gray-800"
-              style={{ alignItems: 'flex-start' }}
-            >
-              <Ionicons name="color-palette-outline" size={18} color={isDark ? '#6b7280' : '#9ca3af'} />
-              <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1" style={{ paddingRight: 8, minWidth: 0 }}>
-                Theme
-              </Text>
-              <View className="flex-row items-center gap-2">
-                <Text className="text-sm text-gray-400 dark:text-gray-500 text-right">
-                  {isDark ? 'Dark' : 'Light'}
-                </Text>
-                <View className={`w-10 h-6 rounded-full items-center justify-center flex-row px-0.5 ${isDark ? 'bg-emerald-600' : 'bg-gray-300'}`}>
-                  <View className={`w-5 h-5 rounded-full bg-white ${isDark ? 'ml-auto' : 'mr-auto'}`} />
-                </View>
-              </View>
-            </Pressable>
+            <SettingRow icon="notifications-outline" label="Notifications" value="Coming soon" last />
+          </Card>
+
+          <Card>
+            <ThemeSwitcher />
+          </Card>
+
+          <Card>
             <SettingRow icon="information-circle-outline" label="Version" value="1.0.0" last />
           </Card>
 

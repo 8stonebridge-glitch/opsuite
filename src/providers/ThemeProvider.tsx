@@ -1,31 +1,37 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'nativewind';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const THEME_KEY = '@opsuite/theme';
 
+export type ThemePreference = 'light' | 'dark' | 'system';
+
 interface ThemeContextValue {
   colorScheme: 'light' | 'dark' | undefined;
   isDark: boolean;
+  preference: ThemePreference;
   toggleTheme: () => void;
-  setTheme: (scheme: 'light' | 'dark' | 'system') => void;
+  setTheme: (scheme: ThemePreference) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   colorScheme: 'light',
   isDark: false,
+  preference: 'system',
   toggleTheme: () => {},
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { colorScheme, setColorScheme, toggleColorScheme } = useColorScheme();
+  const [preference, setPreference] = useState<ThemePreference>('system');
 
   // Restore saved preference on mount
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY)
       .then((saved) => {
         if (saved === 'dark' || saved === 'light' || saved === 'system') {
+          setPreference(saved);
           setColorScheme(saved);
         }
       })
@@ -35,10 +41,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     toggleColorScheme();
     const next = colorScheme === 'dark' ? 'light' : 'dark';
+    setPreference(next);
     AsyncStorage.setItem(THEME_KEY, next).catch(() => {});
   };
 
-  const setTheme = (scheme: 'light' | 'dark' | 'system') => {
+  const setTheme = (scheme: ThemePreference) => {
+    setPreference(scheme);
     setColorScheme(scheme);
     AsyncStorage.setItem(THEME_KEY, scheme).catch(() => {});
   };
@@ -48,6 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       value={{
         colorScheme,
         isDark: colorScheme === 'dark',
+        preference,
         toggleTheme,
         setTheme,
       }}
