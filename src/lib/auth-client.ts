@@ -13,6 +13,8 @@ export const authBaseUrl =
   deriveConvexSiteUrl(process.env.EXPO_PUBLIC_CONVEX_URL?.trim()) ||
   null;
 
+// TODO: Before production launch, replace this Convex-site confirmation callback
+// with the real public confirmation page URL, e.g. https://your-domain.com/email-confirmed.
 export const emailVerificationCallbackUrl = authBaseUrl
   ? `${authBaseUrl.replace(/\/$/, '')}/email-confirmed`
   : 'http://localhost/email-confirmed';
