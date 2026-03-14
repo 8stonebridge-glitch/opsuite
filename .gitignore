@@ -14,3 +14,7 @@ web-build/
 .DS_Store
 *.tsbuildinfo
 .vercel
+test-results/
+playwright-report/
+test-output.log
+blob-report/
