@@ -12,7 +12,7 @@ import { getAuthErrorMessage, hashPassword, validateEmail } from '../../src/util
 import { useOwnerSessionBootstrap } from '../../src/hooks/useOwnerSessionBootstrap';
 
 export default function SignInScreen() {
-  const { dispatch, findAccountByEmail } = useApp();
+  const { state, dispatch, findAccountByEmail } = useApp();
   const router = useRouter();
   const params = useLocalSearchParams<{ verified?: string; checkEmail?: string }>();
   const backendAuth = useBackendAuth();
@@ -25,6 +25,7 @@ export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClearingSession, setIsClearingSession] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [isRestoringWorkspace, setIsRestoringWorkspace] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
   const isDemoAccount = normalizedEmail === 'owner@opsuite.demo';
@@ -33,6 +34,52 @@ export default function SignInScreen() {
   const isEmailVerificationMessage = (message: string) => {
     const normalizedMessage = message.toLowerCase();
     return normalizedMessage.includes('email not verified') || normalizedMessage.includes('verify your email');
+  };
+
+  const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const finishWorkspaceBootstrap = async ({
+    authUserId,
+    name,
+    email,
+  }: {
+    authUserId: string;
+    name: string;
+    email: string;
+  }) => {
+    const timeoutMs = 12000;
+    const pollMs = 400;
+    const startedAt = Date.now();
+    let lastPendingMessage = '';
+
+    while (Date.now() - startedAt < timeoutMs) {
+      if (state.isAuthenticated) {
+        return;
+      }
+
+      try {
+        await bootstrapOwnerSession({
+          authUserId,
+          name,
+          email,
+        });
+        await pause(0);
+        return;
+      } catch (bootstrapError) {
+        const bootstrapMessage = getAuthErrorMessage(bootstrapError, '');
+        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
+          throw bootstrapError;
+        }
+        lastPendingMessage = bootstrapMessage;
+      }
+
+      await pause(pollMs);
+    }
+
+    throw new Error(
+      lastPendingMessage ||
+        'Your session is active, but your workspace is taking longer than expected to reconnect. Please try again.'
+    );
   };
 
   const handleResendVerification = async () => {
@@ -91,6 +138,7 @@ export default function SignInScreen() {
     }
 
     setIsSubmitting(true);
+    setIsRestoringWorkspace(false);
 
     try {
       if (backendAuth.isSignedIn) {
@@ -108,18 +156,12 @@ export default function SignInScreen() {
         throw new Error(result.error.message || 'We could not sign you in.');
       }
 
-      try {
-        await bootstrapOwnerSession({
-          authUserId: result.data?.user?.id || normalizedEmail,
-          name: result.data?.user?.name || 'Owner',
-          email: normalizedEmail,
-        });
-      } catch (bootstrapError) {
-        const bootstrapMessage = getAuthErrorMessage(bootstrapError, '');
-        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
-          throw bootstrapError;
-        }
-      }
+      setIsRestoringWorkspace(true);
+      await finishWorkspaceBootstrap({
+        authUserId: result.data?.user?.id || normalizedEmail,
+        name: result.data?.user?.name || 'Owner',
+        email: normalizedEmail,
+      });
       router.replace('/');
     } catch (err) {
       const message = getAuthErrorMessage(err, 'We could not sign you in.');
@@ -130,6 +172,7 @@ export default function SignInScreen() {
       }
       setError(message);
     } finally {
+      setIsRestoringWorkspace(false);
       setIsSubmitting(false);
     }
   };
@@ -149,24 +192,20 @@ export default function SignInScreen() {
     }
 
     setIsSubmitting(true);
+    setIsRestoringWorkspace(false);
 
     try {
-      try {
-        await bootstrapOwnerSession({
-          authUserId: backendAuth.userId,
-          name: backendAuth.fullName || 'Owner',
-          email: backendAuth.email,
-        });
-      } catch (bootstrapError) {
-        const bootstrapMessage = getAuthErrorMessage(bootstrapError, '');
-        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
-          throw bootstrapError;
-        }
-      }
+      setIsRestoringWorkspace(true);
+      await finishWorkspaceBootstrap({
+        authUserId: backendAuth.userId,
+        name: backendAuth.fullName || 'Owner',
+        email: backendAuth.email,
+      });
       router.replace('/');
     } catch (err) {
       setError(getAuthErrorMessage(err, 'We could not restore the current session yet.'));
     } finally {
+      setIsRestoringWorkspace(false);
       setIsSubmitting(false);
     }
   };
@@ -241,7 +280,13 @@ export default function SignInScreen() {
               </Text>
               <View className="mt-4 gap-3">
                 <Button
-                  title={isSubmitting ? 'Restoring session...' : 'Continue with current session'}
+                  title={
+                    isRestoringWorkspace
+                      ? 'Restoring workspace...'
+                      : isSubmitting
+                        ? 'Restoring session...'
+                        : 'Continue with current session'
+                  }
                   onPress={handleUseCurrentSession}
                   disabled={isSubmitting || isClearingSession}
                   className="w-full"
@@ -300,6 +345,17 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
+          {isRestoringWorkspace ? (
+            <View className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+              <Text className="text-sm font-semibold text-sky-900 mb-1">
+                Restoring your workspace
+              </Text>
+              <Text className="text-sm leading-6 text-sky-800">
+                Your sign-in worked. We&apos;re finishing the connection to your organization data before opening the app.
+              </Text>
+            </View>
+          ) : null}
+
           {!backendAuth.isSignedIn && needsEmailVerification ? (
             <Button
               title={isResendingVerification ? 'Resending email...' : 'Resend verification email'}
@@ -311,7 +367,7 @@ export default function SignInScreen() {
           ) : null}
 
           <Button
-            title={isSubmitting ? 'Signing in...' : 'Sign In'}
+            title={isRestoringWorkspace ? 'Restoring workspace...' : isSubmitting ? 'Signing in...' : 'Sign In'}
             onPress={handleSignIn}
             disabled={isSubmitting}
             className="w-full"

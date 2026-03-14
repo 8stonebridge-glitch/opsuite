@@ -15,10 +15,6 @@ export default function AuthLayout() {
     );
   }
 
-  if (backendAuth.authEnabled && backendAuth.isLoaded && backendAuth.isSignedIn) {
-    return <Redirect href="/" />;
-  }
-
   if (state.isAuthenticated) {
     return <Redirect href="/" />;
   }
