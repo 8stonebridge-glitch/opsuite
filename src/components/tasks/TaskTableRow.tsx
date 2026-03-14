@@ -34,8 +34,8 @@ export function TaskTableRow({ task, role, onPress, isLast }: TaskTableRowProps)
   return (
     <Pressable
       onPress={onPress}
-      className={`flex-row items-center px-3 py-2.5 active:bg-gray-50 ${
-        !isLast ? 'border-b border-gray-100' : ''
+      className={`flex-row items-center px-3 py-2.5 active:bg-gray-50 dark:active:bg-gray-800 ${
+        !isLast ? 'border-b border-gray-100 dark:border-gray-800' : ''
       }`}
       style={overdue ? { backgroundColor: '#fef2f2' } : undefined}
     >
@@ -52,11 +52,11 @@ export function TaskTableRow({ task, role, onPress, isLast }: TaskTableRowProps)
 
       {/* Title + meta */}
       <View className="flex-1 mr-2">
-        <Text className="text-sm text-gray-900" numberOfLines={1}>
+        <Text className="text-sm text-gray-900 dark:text-gray-100" numberOfLines={1}>
           {task.title}
         </Text>
         {meta ? (
-          <Text className="text-[10px] text-gray-400 mt-0.5" numberOfLines={1}>
+          <Text className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5" numberOfLines={1}>
             {meta}
           </Text>
         ) : null}
@@ -72,14 +72,14 @@ export function TaskTableRow({ task, role, onPress, isLast }: TaskTableRowProps)
         {due ? (
           <Text
             className={`text-[10px] ${
-              due.urgent ? 'text-red-600 font-semibold' : 'text-gray-400'
+              due.urgent ? 'text-red-600 font-semibold' : 'text-gray-400 dark:text-gray-500'
             }`}
             numberOfLines={1}
           >
             {due.text}
           </Text>
         ) : (
-          <Text className="text-[10px] text-gray-300">—</Text>
+          <Text className="text-[10px] text-gray-300 dark:text-gray-600">—</Text>
         )}
       </View>
     </Pressable>

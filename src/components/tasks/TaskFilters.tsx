@@ -17,7 +17,7 @@ const FILTERS: { value: FilterValue; label: string }[] = [
 
 export function TaskFilters({ value, onChange, color = '#059669', counts }: TaskFiltersProps) {
   return (
-    <View className="flex-row rounded-2xl bg-gray-200 p-1 mb-4">
+    <View className="flex-row rounded-2xl bg-gray-200 dark:bg-gray-800 p-1 mb-4">
       {FILTERS.map((f) => {
         const isActive = value === f.value;
         const count = counts?.[f.value];
@@ -25,12 +25,12 @@ export function TaskFilters({ value, onChange, color = '#059669', counts }: Task
           <Pressable
             key={f.value}
             onPress={() => onChange(f.value)}
-            className={`flex-1 py-2.5 rounded-xl items-center ${isActive ? 'bg-white shadow-sm' : ''}`}
+            className={`flex-1 py-2.5 rounded-xl items-center ${isActive ? 'bg-white dark:bg-gray-900 shadow-sm' : ''}`}
           >
-            <Text className={`text-sm font-semibold ${isActive ? 'text-gray-900' : 'text-gray-500'}`}>
+            <Text className={`text-sm font-semibold ${isActive ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
               {f.label}
               {count !== undefined ? (
-                <Text className={`font-normal ${isActive ? 'text-gray-400' : 'text-gray-400'}`}>
+                <Text className={`font-normal ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-400 dark:text-gray-500'}`}>
                   {' '}{count}
                 </Text>
               ) : null}

@@ -12,11 +12,13 @@ import { getAuthErrorMessage, validateEmail, validatePassword } from '../../src/
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { authClient, emailVerificationCallbackUrl } from '../../src/lib/auth-client';
+import { useTheme } from '../../src/providers/ThemeProvider';
 import type { Industry } from '../../src/types';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { dispatch } = useApp();
+  const { isDark } = useTheme();
   const { isSignedIn } = useBackendAuth();
   const storeSignupDraft = useMutation(api.organizations.storeSignupDraft);
 
@@ -144,7 +146,7 @@ export default function SignUpScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white dark:bg-gray-950">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -159,14 +161,14 @@ export default function SignUpScreen() {
             onPress={() => router.back()}
             className="flex-row items-center gap-1 mb-6"
           >
-            <Ionicons name="arrow-back" size={18} color="#9ca3af" />
-            <Text className="text-sm text-gray-400">Back</Text>
+            <Ionicons name="arrow-back" size={18} color={isDark ? '#6b7280' : '#9ca3af'} />
+            <Text className="text-sm text-gray-400 dark:text-gray-500">Back</Text>
           </Pressable>
 
-          <Text className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
+          <Text className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-2">
             Create account
           </Text>
-          <Text className="text-base text-gray-400 mb-8">
+          <Text className="text-base text-gray-400 dark:text-gray-500 mb-8">
             Set up your organization
           </Text>
 
@@ -175,7 +177,7 @@ export default function SignUpScreen() {
               <View className="h-12 w-12 rounded-2xl bg-emerald-100 items-center justify-center mb-4">
                 <Ionicons name="mail-open-outline" size={24} color="#059669" />
               </View>
-              <Text className="text-xl font-semibold text-gray-900 mb-2">
+              <Text className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 Check your email
               </Text>
               <Text className="text-sm leading-6 text-gray-600 mb-5">
@@ -295,7 +297,7 @@ export default function SignUpScreen() {
             />
               </View>
 
-              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
                 Industry
               </Text>
               <View className="flex-row flex-wrap gap-3 mb-6">
@@ -306,7 +308,7 @@ export default function SignUpScreen() {
                       key={ind.id}
                       onPress={() => setIndustry(ind)}
                       className={`w-[48%] p-4 rounded-2xl border-2 ${
-                        selected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'
+                        selected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
                       }`}
                     >
                       <View
@@ -318,7 +320,7 @@ export default function SignUpScreen() {
                           style={{ backgroundColor: ind.color }}
                         />
                       </View>
-                      <Text className="text-sm font-semibold text-gray-900">
+                      <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {ind.name}
                       </Text>
                     </Pressable>
@@ -326,7 +328,7 @@ export default function SignUpScreen() {
                 })}
               </View>
 
-              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
                 Organization Structure
               </Text>
               <View className="flex-row gap-3 mb-8">
@@ -335,18 +337,18 @@ export default function SignUpScreen() {
                   className={`flex-1 p-4 rounded-2xl border-2 ${
                     orgStructure === 'with_subadmins'
                       ? 'border-emerald-500 bg-emerald-50'
-                      : 'border-gray-200 bg-white'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
                   }`}
                 >
                   <Ionicons
                     name="git-branch-outline"
                     size={22}
-                    color={orgStructure === 'with_subadmins' ? '#059669' : '#9ca3af'}
+                    color={orgStructure === 'with_subadmins' ? '#059669' : isDark ? '#6b7280' : '#9ca3af'}
                   />
-                  <Text className="text-sm font-semibold text-gray-900 mt-2">
+                  <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-2">
                     With SubAdmins
                   </Text>
-                  <Text className="text-xs text-gray-400 mt-1">
+                  <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Admin → Leads → Staff
                   </Text>
                 </Pressable>
@@ -355,18 +357,18 @@ export default function SignUpScreen() {
                   className={`flex-1 p-4 rounded-2xl border-2 ${
                     orgStructure === 'admin_only'
                       ? 'border-emerald-500 bg-emerald-50'
-                      : 'border-gray-200 bg-white'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
                   }`}
                 >
                   <Ionicons
                     name="person-outline"
                     size={22}
-                    color={orgStructure === 'admin_only' ? '#059669' : '#9ca3af'}
+                    color={orgStructure === 'admin_only' ? '#059669' : isDark ? '#6b7280' : '#9ca3af'}
                   />
-                  <Text className="text-sm font-semibold text-gray-900 mt-2">
+                  <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-2">
                     Admin Only
                   </Text>
-                  <Text className="text-xs text-gray-400 mt-1">
+                  <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Admin → Staff
                   </Text>
                 </Pressable>

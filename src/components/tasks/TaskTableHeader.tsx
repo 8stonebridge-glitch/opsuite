@@ -1,5 +1,6 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../providers/ThemeProvider';
 
 interface TaskTableHeaderProps {
   sortKey: string;
@@ -14,8 +15,9 @@ const COLUMNS: { key: string; label: string; flex: number }[] = [
 ];
 
 export function TaskTableHeader({ sortKey, sortDir, onSort }: TaskTableHeaderProps) {
+  const { isDark } = useTheme();
   return (
-    <View className="flex-row items-center px-3 py-2 bg-gray-50 border-b border-gray-200">
+    <View className="flex-row items-center px-3 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
       {/* Spacer for priority dot */}
       <View style={{ width: 14 }} />
 
@@ -36,7 +38,7 @@ export function TaskTableHeader({ sortKey, sortDir, onSort }: TaskTableHeaderPro
           >
             <Text
               className={`text-[10px] uppercase tracking-wider font-semibold ${
-                isActive ? 'text-gray-700' : 'text-gray-400'
+                isActive ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
               }`}
             >
               {col.label}
@@ -45,7 +47,7 @@ export function TaskTableHeader({ sortKey, sortDir, onSort }: TaskTableHeaderPro
               <Ionicons
                 name={sortDir === 'asc' ? 'chevron-up' : 'chevron-down'}
                 size={10}
-                color="#374151"
+                color={isDark ? '#d1d5db' : '#374151'}
               />
             )}
           </Pressable>

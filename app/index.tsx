@@ -22,16 +22,16 @@ function SilentLoadingScreen({
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white dark:bg-gray-950">
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color="#059669" />
         {showFallback ? (
           <View className="mt-8 items-center px-6">
-            <Text className="text-sm text-gray-400 text-center mb-4">
+            <Text className="text-sm text-gray-400 dark:text-gray-500 text-center mb-4">
               Taking longer than expected.
             </Text>
             <Pressable onPress={onTimeout}>
-              <Text className="text-sm font-semibold text-emerald-600">Go to sign in</Text>
+              <Text className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Go to sign in</Text>
             </Pressable>
           </View>
         ) : null}
@@ -62,6 +62,12 @@ export default function Index() {
 
   // Auth still loading after local state is set — show silent spinner
   if (authEnabled && !isLoaded) {
+    return <SilentLoadingScreen onTimeout={handleForceSignIn} />;
+  }
+
+  // Backend auth hint loaded from localStorage but not yet confirmed by
+  // the real Convex session — hold here instead of routing with stale data
+  if (state.pendingBackendAuth && authEnabled) {
     return <SilentLoadingScreen onTimeout={handleForceSignIn} />;
   }
 

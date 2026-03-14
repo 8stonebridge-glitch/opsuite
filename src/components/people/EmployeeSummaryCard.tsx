@@ -2,6 +2,7 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../ui/Avatar';
 import { ScoreBadge } from '../performance/ScoreBadge';
+import { useTheme } from '../../providers/ThemeProvider';
 import type { EmployeeSummary } from '../../store/selectors';
 import type { ScoreBand } from '../../types';
 
@@ -34,17 +35,18 @@ function relativeTime(dateStr: string | null): string {
 }
 
 export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, score, band, topAction, availabilityBadge }: Props) {
+  const { isDark } = useTheme();
   return (
     <View
-      className={`flex-row items-center py-3 gap-3 ${last ? '' : 'border-b border-gray-100'}`}
+      className={`flex-row items-center py-3 gap-3 ${last ? '' : 'border-b border-gray-100 dark:border-gray-800'}`}
     >
       <Avatar name={name} color={teamColor} size="sm" />
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-center gap-1.5">
-          <Text className="text-sm font-medium text-gray-900">{name}</Text>
+          <Text className="text-sm font-medium text-gray-900 dark:text-gray-100">{name}</Text>
           {isLead && (
-            <View className="px-1.5 py-0.5 bg-gray-100 rounded">
-              <Text className="text-[9px] font-semibold text-gray-500">LEAD</Text>
+            <View className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">
+              <Text className="text-[9px] font-semibold text-gray-500 dark:text-gray-400">LEAD</Text>
             </View>
           )}
           {availabilityBadge && (
@@ -56,7 +58,7 @@ export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, sc
           )}
         </View>
         <View className="flex-row items-center gap-2">
-          <Text className="text-xs text-gray-400">
+          <Text className="text-xs text-gray-400 dark:text-gray-500">
             {summary.activeCount} active
           </Text>
           {summary.overdueCount > 0 && (
@@ -64,7 +66,7 @@ export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, sc
               {summary.overdueCount} overdue
             </Text>
           )}
-          <Text className="text-xs text-gray-300">
+          <Text className="text-xs text-gray-300 dark:text-gray-600">
             {relativeTime(summary.lastActivity)}
           </Text>
         </View>
@@ -76,7 +78,7 @@ export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, sc
         <View
           className="w-2.5 h-2.5 rounded-full"
           style={{
-            backgroundColor: summary.checkedInToday ? '#059669' : '#d1d5db',
+            backgroundColor: summary.checkedInToday ? '#059669' : isDark ? '#4b5563' : '#d1d5db',
           }}
         />
       )}

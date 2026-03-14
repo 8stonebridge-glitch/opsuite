@@ -11,9 +11,30 @@ import { InboxProvider } from '../src/components/inbox/InboxProvider';
 import { InboxSheet } from '../src/components/inbox/InboxSheet';
 import { BackendProviders } from '../src/providers/BackendProviders';
 import { SessionBridge } from '../src/providers/SessionBridge';
+import { ThemeProvider, useTheme } from '../src/providers/ThemeProvider';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
+}
+
+function RootContent() {
+  const { isDark } = useTheme();
+
+  return (
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(onboarding)" />
+        <Stack.Screen name="(owner_admin)" />
+        <Stack.Screen name="(subadmin)" />
+        <Stack.Screen name="(employee)" />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <InboxSheet />
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -29,19 +50,11 @@ export default function RootLayout() {
         <BackendProviders>
           <AppProvider>
             <SessionBridge />
-            <InboxProvider>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(onboarding)" />
-                <Stack.Screen name="(owner_admin)" />
-                <Stack.Screen name="(subadmin)" />
-                <Stack.Screen name="(employee)" />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <InboxSheet />
-            </InboxProvider>
+            <ThemeProvider>
+              <InboxProvider>
+                <RootContent />
+              </InboxProvider>
+            </ThemeProvider>
           </AppProvider>
         </BackendProviders>
       </SafeAreaProvider>

@@ -12,6 +12,7 @@ import {
   useIndustryColor,
 } from '../../store/selectors';
 import { useBackendAuth } from '../../providers/BackendProviders';
+import { useTheme } from '../../providers/ThemeProvider';
 import { getNextStatuses } from '../../utils/task-helpers';
 import { getToday, getNowISO } from '../../utils/date';
 import { StatusBadge } from '../ui/Badge';
@@ -25,6 +26,7 @@ export function TaskUpdateScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
   const { authEnabled } = useBackendAuth();
+  const { isDark } = useTheme();
   const color = useIndustryColor();
   const curName = useCurrentName();
   const curRoleLabel = useCurrentRoleLabel();
@@ -43,22 +45,27 @@ export function TaskUpdateScreen() {
 
   if (isBackendMode && backendDetail === undefined) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <Text className="text-gray-400">Loading task...</Text>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center">
+        <Text className="text-gray-400 dark:text-gray-500">Loading task...</Text>
       </SafeAreaView>
     );
   }
 
   if (!task) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <Text className="text-gray-400">Task not found</Text>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center">
+        <Text className="text-gray-400 dark:text-gray-500">Task not found</Text>
       </SafeAreaView>
     );
   }
 
-  const isAssignee = task.assigneeId === state.userId;
-  const nextStatuses = getNextStatuses(task.status, state.role, isAssignee);
+  // In backend mode, use server-computed allowed statuses to avoid local userId mismatch
+  const isAssignee = isBackendMode
+    ? Boolean(backendDetail?.isAssignee)
+    : task.assigneeId === state.userId;
+  const nextStatuses = isBackendMode && backendDetail?.allowedNextStatuses
+    ? (backendDetail.allowedNextStatuses as TaskStatus[])
+    : getNextStatuses(task.status, state.role, isAssignee);
   const newStatus = selectedStatus || (nextStatuses.length === 1 ? nextStatuses[0] : '');
 
   const handleSubmit = async () => {
@@ -148,26 +155,26 @@ export function TaskUpdateScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
-      <View className="bg-white px-5 py-4 flex-row items-center gap-3 border-b border-gray-100">
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
+      <View className="bg-white dark:bg-gray-900 px-5 py-4 flex-row items-center gap-3 border-b border-gray-100 dark:border-gray-800">
         <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#374151" />
+          <Ionicons name="arrow-back" size={22} color={isDark ? '#d1d5db' : '#374151'} />
         </Pressable>
-        <Text className="text-base font-bold text-gray-900 flex-1">Update Task</Text>
+        <Text className="text-base font-bold text-gray-900 dark:text-gray-100 flex-1">Update Task</Text>
       </View>
 
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 100, paddingTop: 16 }}>
         <Card className="mb-4">
-          <Text className="text-base font-semibold text-gray-900 mb-2">{task.title}</Text>
+          <Text className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">{task.title}</Text>
           <View className="flex-row items-center gap-2">
-            <Text className="text-xs text-gray-400">Current:</Text>
+            <Text className="text-xs text-gray-400 dark:text-gray-500">Current:</Text>
             <StatusBadge status={task.status} />
           </View>
         </Card>
 
         {nextStatuses.length > 0 && (
           <View className="mb-4">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
               New status
             </Text>
             <View className="flex-row gap-2">
@@ -178,7 +185,7 @@ export function TaskUpdateScreen() {
                   className={`flex-1 py-3.5 rounded-xl items-center border ${
                     (selectedStatus === s || (nextStatuses.length === 1))
                       ? 'border-transparent'
-                      : 'border-gray-200'
+                      : 'border-gray-200 dark:border-gray-700'
                   }`}
                   style={
                     (selectedStatus === s || nextStatuses.length === 1)
@@ -190,7 +197,7 @@ export function TaskUpdateScreen() {
                     className={`text-sm font-semibold ${
                       (selectedStatus === s || nextStatuses.length === 1)
                         ? 'text-white'
-                        : 'text-gray-500'
+                        : 'text-gray-500 dark:text-gray-400'
                     }`}
                   >
                     {STATUS_DISPLAY[s] || s}
@@ -202,17 +209,17 @@ export function TaskUpdateScreen() {
         )}
 
         <View className="mb-6">
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
             Add a note (optional)
           </Text>
           <TextInput
             value={note}
             onChangeText={setNote}
             placeholder="What progress have you made?"
-            placeholderTextColor="#d1d5db"
+            placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
             multiline
             numberOfLines={4}
-            className="bg-white rounded-2xl px-4 py-3.5 text-sm text-gray-900 border border-gray-200 min-h-[100px]"
+            className="bg-white dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-sm text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 min-h-[100px]"
             textAlignVertical="top"
           />
         </View>

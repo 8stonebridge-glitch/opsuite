@@ -315,8 +315,18 @@ export const getDetail = query({
         }>;
     }
 
+    const isAssignee = task.assignedToMembershipId === membership._id;
+    const isManagerRole = membership.role === "owner_admin" || membership.role === "subadmin";
+    const allowedNextStatuses = getAllowedNextStatuses(task.status, membership.role, isAssignee);
+
     return {
       task: hydratedTask,
+      isAssignee,
+      canApprove: isManagerRole && task.status === "Pending Approval",
+      canVerify: isManagerRole && task.status === "Completed",
+      canRequestRework: isManagerRole && task.status === "Completed",
+      canUpdateStatus: allowedNextStatuses.length > 0,
+      allowedNextStatuses,
       canDelegate:
         membership.role === "subadmin" &&
         task.accountableLeadMembershipId === membership._id &&

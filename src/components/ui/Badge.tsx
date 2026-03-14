@@ -7,7 +7,7 @@ interface BadgeProps {
 }
 
 export function StatusBadge({ status }: BadgeProps) {
-  const colors = STATUS_COLORS[status] || { bg: 'bg-gray-100', text: 'text-gray-500' };
+  const colors = STATUS_COLORS[status] || { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-500 dark:text-gray-400' };
   const label = STATUS_SHORT[status] || status;
 
   return (
@@ -23,9 +23,9 @@ interface PriorityBadgeProps {
 
 export function PriorityBadge({ priority }: PriorityBadgeProps) {
   const map: Record<string, { bg: string; text: string; label: string }> = {
-    critical: { bg: 'bg-red-50', text: 'text-red-600', label: 'High' },
-    medium: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Medium' },
-    low: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Low' },
+    critical: { bg: 'bg-red-50 dark:bg-red-950', text: 'text-red-600 dark:text-red-400', label: 'High' },
+    medium: { bg: 'bg-amber-50 dark:bg-amber-950', text: 'text-amber-600 dark:text-amber-400', label: 'Medium' },
+    low: { bg: 'bg-emerald-50 dark:bg-emerald-950', text: 'text-emerald-600 dark:text-emerald-400', label: 'Low' },
   };
   const cfg = map[priority] || map.medium;
 

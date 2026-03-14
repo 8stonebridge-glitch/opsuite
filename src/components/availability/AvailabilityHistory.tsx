@@ -2,6 +2,7 @@ import { View, Text, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { AvailabilityRecord, AvailabilityType, AvailabilityStatus } from '../../types';
 import { Card } from '../ui/Card';
+import { useTheme } from '../../providers/ThemeProvider';
 
 const TYPE_CONFIG: Record<AvailabilityType, { icon: string; label: string; color: string }> = {
   leave: { icon: 'airplane', label: 'Leave', color: '#3b82f6' },
@@ -21,6 +22,7 @@ interface AvailabilityHistoryProps {
 }
 
 export function AvailabilityHistory({ records }: AvailabilityHistoryProps) {
+  const { isDark } = useTheme();
   const sorted = [...records].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
@@ -28,8 +30,8 @@ export function AvailabilityHistory({ records }: AvailabilityHistoryProps) {
   if (sorted.length === 0) {
     return (
       <View className="items-center py-8">
-        <Ionicons name="calendar-outline" size={36} color="#d1d5db" />
-        <Text className="text-sm text-gray-400 mt-2">No availability records</Text>
+        <Ionicons name="calendar-outline" size={36} color={isDark ? '#6b7280' : '#d1d5db'} />
+        <Text className="text-sm text-gray-400 dark:text-gray-500 mt-2">No availability records</Text>
       </View>
     );
   }
@@ -47,7 +49,7 @@ export function AvailabilityHistory({ records }: AvailabilityHistoryProps) {
         return (
           <View
             key={record.id}
-            className="flex-row items-center gap-3 py-3 border-b border-gray-50"
+            className="flex-row items-center gap-3 py-3 border-b border-gray-50 dark:border-gray-800"
           >
             <View
               className="w-8 h-8 rounded-full items-center justify-center"
@@ -56,8 +58,8 @@ export function AvailabilityHistory({ records }: AvailabilityHistoryProps) {
               <Ionicons name={typeConfig.icon as any} size={16} color={typeConfig.color} />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-medium text-gray-900">{typeConfig.label}</Text>
-              <Text className="text-xs text-gray-400">{dateRange}</Text>
+              <Text className="text-sm font-medium text-gray-900 dark:text-gray-100">{typeConfig.label}</Text>
+              <Text className="text-xs text-gray-400 dark:text-gray-500">{dateRange}</Text>
             </View>
             <View
               className="px-2.5 py-1 rounded-full"

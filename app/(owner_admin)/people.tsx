@@ -19,6 +19,7 @@ import { Button } from '../../src/components/ui/Button';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { useIndustryColor } from '../../src/store/selectors';
+import { useTheme } from '../../src/providers/ThemeProvider';
 import { uid } from '../../src/utils/id';
 
 const PREVIEW_LIMIT = 8;
@@ -36,6 +37,7 @@ export default function OwnerPeopleScreen() {
   const { state, dispatch } = useApp();
   const teams = useTeams();
   const color = useIndustryColor();
+  const { isDark } = useTheme();
   const summaries = useEmployeeSummaries();
   const allPerfs = useAllEmployeePerformances();
   const availability = useAvailability();
@@ -276,7 +278,7 @@ export default function OwnerPeopleScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
 
       <ScrollView
@@ -286,13 +288,13 @@ export default function OwnerPeopleScreen() {
       >
         <View className="px-5 pt-4">
           <View className="flex-row items-center justify-between gap-3 mb-3">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-1">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex-1">
               Teams
             </Text>
             <View className="flex-row items-center gap-2">
               <Pressable
                 onPress={() => setShowCreateMember(true)}
-                className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-gray-200"
+                className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
               >
                 <Ionicons name="person-add" size={16} color={color} />
                 <Text className="text-xs font-semibold" style={{ color }}>
@@ -301,7 +303,7 @@ export default function OwnerPeopleScreen() {
               </Pressable>
               <Pressable
                 onPress={() => setShowCreateTeam(true)}
-                className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-gray-200"
+                className="flex-row items-center gap-1.5 px-3 py-2 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
               >
                 <Ionicons name="add" size={16} color={color} />
                 <Text className="text-xs font-semibold" style={{ color }}>
@@ -359,10 +361,10 @@ export default function OwnerPeopleScreen() {
                   <Card className="flex-row items-center gap-3">
                     <Avatar name={team.name} color={team.color} />
                     <View className="flex-1">
-                      <Text className="text-sm font-semibold text-gray-900">
+                      <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {team.name}
                       </Text>
-                      <Text className="text-xs text-gray-400">
+                      <Text className="text-xs text-gray-400 dark:text-gray-500">
                         {allMembers.length} people · {teamActiveCount} active
                         {teamOverdueCount > 0
                           ? ` · ${teamOverdueCount} overdue`
@@ -380,7 +382,7 @@ export default function OwnerPeopleScreen() {
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={14}
-                      color="#9ca3af"
+                      color={isDark ? '#6b7280' : '#9ca3af'}
                     />
                   </Card>
                 </Pressable>
@@ -439,9 +441,9 @@ export default function OwnerPeopleScreen() {
 
       <Modal visible={showCreateMember} transparent animationType="slide">
         <Pressable className="flex-1 bg-black/30" onPress={() => setShowCreateMember(false)} />
-        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-10">
+        <View className="bg-white dark:bg-gray-950 rounded-t-3xl px-5 pt-5 pb-10">
           <View className="flex-row items-center justify-between mb-5">
-            <Text className="text-base font-bold text-gray-900">Add Person</Text>
+            <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Add Person</Text>
             <Pressable onPress={() => setShowCreateMember(false)}>
               <Ionicons name="close" size={22} color="#6b7280" />
             </Pressable>
@@ -462,25 +464,25 @@ export default function OwnerPeopleScreen() {
           />
 
           <View className="mt-4">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Full Name
             </Text>
             <TextInput
-              className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900 mb-4"
+              className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
               placeholder="Ada Nwobi"
               value={memberName}
               onChangeText={(text) => {
                 setMemberName(text);
                 setMemberError('');
               }}
-              placeholderTextColor="#d1d5db"
+              placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
             />
 
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Work Email
             </Text>
             <TextInput
-              className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900"
+              className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100"
               placeholder="ada@company.com"
               value={memberEmail}
               onChangeText={(text) => {
@@ -489,7 +491,7 @@ export default function OwnerPeopleScreen() {
               }}
               autoCapitalize="none"
               keyboardType="email-address"
-              placeholderTextColor="#d1d5db"
+              placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
             />
           </View>
 
@@ -523,7 +525,7 @@ export default function OwnerPeopleScreen() {
             />
           </View>
 
-          <Text className="text-sm text-gray-400 leading-6 mt-5">
+          <Text className="text-sm text-gray-400 dark:text-gray-500 leading-6 mt-5">
             {memberRole === 'employee'
               ? 'Employees are attached to a real team immediately so they show up in people, team, and task views.'
               : 'Subadmins become available as assignable team leads right away. Later, when they sign in, the app will claim their provisioned record by email.'}
@@ -546,26 +548,26 @@ export default function OwnerPeopleScreen() {
 
       <Modal visible={showCreateTeam} transparent animationType="slide">
         <Pressable className="flex-1 bg-black/30" onPress={() => setShowCreateTeam(false)} />
-        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-10">
+        <View className="bg-white dark:bg-gray-950 rounded-t-3xl px-5 pt-5 pb-10">
           <View className="flex-row items-center justify-between mb-5">
-            <Text className="text-base font-bold text-gray-900">Add Team</Text>
+            <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Add Team</Text>
             <Pressable onPress={() => setShowCreateTeam(false)}>
               <Ionicons name="close" size={22} color="#6b7280" />
             </Pressable>
           </View>
 
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
             Team Name
           </Text>
           <TextInput
-            className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900 mb-4"
+            className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
             placeholder="Operations North"
             value={teamName}
             onChangeText={(text) => {
               setTeamName(text);
               setTeamError('');
             }}
-            placeholderTextColor="#d1d5db"
+            placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
           />
 
           <Select
@@ -585,18 +587,18 @@ export default function OwnerPeopleScreen() {
           <View className="mt-4">
             {state.isDemo ? (
               <>
-                <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
                   Lead Name
                 </Text>
                 <TextInput
-                  className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900"
+                  className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100"
                   placeholder="Enter a lead name"
                   value={demoLeadName}
                   onChangeText={(text) => {
                     setDemoLeadName(text);
                     setTeamError('');
                   }}
-                  placeholderTextColor="#d1d5db"
+                  placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
                 />
               </>
             ) : (
@@ -618,7 +620,7 @@ export default function OwnerPeopleScreen() {
           </View>
 
           <View className="mt-4">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Team Color
             </Text>
             <View className="flex-row flex-wrap gap-3">
@@ -628,7 +630,7 @@ export default function OwnerPeopleScreen() {
                   <Pressable
                     key={swatch}
                     onPress={() => setTeamColor(swatch)}
-                    className={`w-10 h-10 rounded-full items-center justify-center ${selected ? 'border-2 border-gray-900' : ''}`}
+                    className={`w-10 h-10 rounded-full items-center justify-center ${selected ? 'border-2 border-gray-900 dark:border-gray-100' : ''}`}
                     style={{ backgroundColor: swatch }}
                   >
                     {selected ? <Ionicons name="checkmark" size={16} color="white" /> : null}
@@ -639,11 +641,11 @@ export default function OwnerPeopleScreen() {
           </View>
 
           {!state.isDemo && !canCreateRealTeam ? (
-            <Text className="text-sm text-gray-400 leading-6 mt-5">
+            <Text className="text-sm text-gray-400 dark:text-gray-500 leading-6 mt-5">
               This org does not have any available subadmins yet. Create or invite a subadmin first, then you can attach that lead to a new team.
             </Text>
           ) : (
-            <Text className="text-sm text-gray-400 leading-6 mt-5">
+            <Text className="text-sm text-gray-400 dark:text-gray-500 leading-6 mt-5">
               Teams show up in owner, subadmin, and employee views. We keep the lead attached at creation so the team has a clear owner from day one.
             </Text>
           )}

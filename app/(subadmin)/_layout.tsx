@@ -6,6 +6,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { useTheme } from '../../src/providers/ThemeProvider';
 
 export default function SubAdminLayout() {
   const insets = useSafeAreaInsets();
@@ -13,10 +14,11 @@ export default function SubAdminLayout() {
   const counters = useDashboardCounters();
   const { state } = useApp();
   const { authEnabled, isLoaded, isSignedIn } = useBackendAuth();
+  const { isDark } = useTheme();
 
   if (!state.isAuthenticated && authEnabled && isLoaded && isSignedIn) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#030712' : '#fff', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#059669" />
       </SafeAreaView>
     );
@@ -36,14 +38,14 @@ export default function SubAdminLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopColor: '#f3f4f6',
+          backgroundColor: isDark ? '#030712' : '#fff',
+          borderTopColor: isDark ? '#1f2937' : '#f3f4f6',
           borderTopWidth: 1,
           height: 56 + insets.bottom,
           paddingBottom: insets.bottom,
         },
         tabBarActiveTintColor: color,
-        tabBarInactiveTintColor: '#9ca3af',
+        tabBarInactiveTintColor: isDark ? '#6b7280' : '#9ca3af',
         tabBarLabelStyle: { fontSize: 10 },
       }}
     >

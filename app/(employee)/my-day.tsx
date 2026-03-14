@@ -23,11 +23,13 @@ import { TaskPreviewSection } from '../../src/components/overview/TaskPreviewSec
 import { PerformanceCard } from '../../src/components/performance/PerformanceCard';
 import { Card } from '../../src/components/ui/Card';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { useTheme } from '../../src/providers/ThemeProvider';
 
 export default function EmployeeMyDayScreen() {
   const { state, dispatch } = useApp();
   const router = useRouter();
   const { authEnabled } = useBackendAuth();
+  const { isDark } = useTheme();
   const color = useIndustryColor();
   const name = useCurrentName();
   const localMyDay = useMyDayData();
@@ -239,7 +241,7 @@ export default function EmployeeMyDayScreen() {
       );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
 
       <ScrollView
@@ -251,7 +253,7 @@ export default function EmployeeMyDayScreen() {
           {isBackendMode && (!backendTaskLists || !backendHandoff) ? (
             <Card className="flex-row items-center gap-3">
               <Ionicons name="sync" size={18} color={color} />
-              <Text className="text-sm text-gray-600">Loading your handoff...</Text>
+              <Text className="text-sm text-gray-600 dark:text-gray-400">Loading your handoff...</Text>
             </Card>
           ) : null}
 
@@ -266,8 +268,8 @@ export default function EmployeeMyDayScreen() {
                 <Ionicons name="moon" size={24} color="#6366f1" />
               </View>
               <View className="flex-1">
-                <Text className="text-sm font-semibold text-gray-900">You are unavailable today</Text>
-                <Text className="text-xs text-gray-400">
+                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">You are unavailable today</Text>
+                <Text className="text-xs text-gray-400 dark:text-gray-500">
                   No handoff required while you're away
                 </Text>
               </View>
@@ -282,8 +284,8 @@ export default function EmployeeMyDayScreen() {
                 <Ionicons name="checkmark-circle" size={24} color="#059669" />
               </View>
               <View className="flex-1">
-                <Text className="text-sm font-semibold text-gray-900">Handoff Complete</Text>
-                <Text className="text-xs text-gray-400">
+                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">Handoff Complete</Text>
+                <Text className="text-xs text-gray-400 dark:text-gray-500">
                   All tasks reviewed for today
                 </Text>
               </View>
@@ -299,10 +301,10 @@ export default function EmployeeMyDayScreen() {
                   <Ionicons name="sunny" size={24} color={color} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900">
+                  <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Good morning, {name.split(' ')[0]}
                   </Text>
-                  <Text className="text-xs text-gray-400">No active tasks · Tap to complete handoff</Text>
+                  <Text className="text-xs text-gray-400 dark:text-gray-500">No active tasks · Tap to complete handoff</Text>
                 </View>
                 <View
                   className="px-4 py-2 rounded-full"
@@ -317,7 +319,7 @@ export default function EmployeeMyDayScreen() {
             <Card>
               <View className="flex-row items-center gap-2 mb-3">
                 <Ionicons name="hand-left" size={16} color={color} />
-                <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                   Daily Handoff
                 </Text>
                 <View className="flex-1" />
@@ -327,7 +329,7 @@ export default function EmployeeMyDayScreen() {
               </View>
 
               {/* Progress bar */}
-              <View className="h-2 bg-gray-100 rounded-full overflow-hidden mb-4">
+              <View className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mb-4">
                 <View
                   className="h-2 rounded-full"
                   style={{
@@ -341,14 +343,14 @@ export default function EmployeeMyDayScreen() {
               {handoff.remaining.map((task) => (
                 <View
                   key={task.id}
-                  className="flex-row items-center gap-3 py-2.5 border-b border-gray-50"
+                  className="flex-row items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800"
                 >
-                  <View className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                  <View className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
                   <View className="flex-1">
-                    <Text className="text-sm text-gray-900" numberOfLines={1}>
+                    <Text className="text-sm text-gray-900 dark:text-gray-100" numberOfLines={1}>
                       {task.title}
                     </Text>
-                    <Text className="text-[10px] text-gray-400">{task.site}</Text>
+                    <Text className="text-[10px] text-gray-400 dark:text-gray-500">{task.site}</Text>
                   </View>
                   <Pressable
                     onPress={() => goToTask(task.id)}
@@ -358,9 +360,9 @@ export default function EmployeeMyDayScreen() {
                   </Pressable>
                   <Pressable
                     onPress={() => void handleNoChange(task.id)}
-                    className="px-2.5 py-1.5 bg-gray-100 rounded-lg"
+                    className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg"
                   >
-                    <Text className="text-[10px] font-semibold text-gray-500">
+                    <Text className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
                       {isSubmittingNoChangeId === task.id ? 'Saving...' : 'No change'}
                     </Text>
                   </Pressable>
@@ -372,11 +374,11 @@ export default function EmployeeMyDayScreen() {
                 engagedTasks.map((task) => (
                     <View
                       key={task.id}
-                      className="flex-row items-center gap-3 py-2.5 border-b border-gray-50"
+                      className="flex-row items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800"
                     >
                       <Ionicons name="checkmark-circle" size={14} color="#059669" />
                       <View className="flex-1">
-                        <Text className="text-sm text-gray-400" numberOfLines={1}>
+                        <Text className="text-sm text-gray-400 dark:text-gray-500" numberOfLines={1}>
                           {task.title}
                         </Text>
                       </View>
@@ -390,7 +392,7 @@ export default function EmployeeMyDayScreen() {
                 disabled={!allEngaged || isSubmittingHandoff}
                 className="mt-4 py-3 rounded-xl items-center"
                 style={{
-                  backgroundColor: allEngaged && !isSubmittingHandoff ? color : '#e5e7eb',
+                  backgroundColor: allEngaged && !isSubmittingHandoff ? color : isDark ? '#374151' : '#e5e7eb',
                 }}
               >
                 <Text
@@ -410,10 +412,10 @@ export default function EmployeeMyDayScreen() {
                 <View className="w-8 h-8 rounded-full items-center justify-center bg-red-50">
                   <Ionicons name="medkit" size={16} color="#ef4444" />
                 </View>
-                <Text className="text-sm font-medium text-gray-700 flex-1">
+                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1">
                   {isSubmittingSick ? 'Reporting Sick...' : 'Report Sick Today'}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+                <Ionicons name="chevron-forward" size={16} color={isDark ? '#4b5563' : '#d1d5db'} />
               </Card>
             </Pressable>
           )}
@@ -465,8 +467,8 @@ export default function EmployeeMyDayScreen() {
 
           {isEmpty && handoffDone && (
             <View className="items-center py-12">
-              <Ionicons name="checkmark-done-circle" size={48} color="#d1d5db" />
-              <Text className="text-sm text-gray-400 mt-3">All clear for today</Text>
+              <Ionicons name="checkmark-done-circle" size={48} color={isDark ? '#4b5563' : '#d1d5db'} />
+              <Text className="text-sm text-gray-400 dark:text-gray-500 mt-3">All clear for today</Text>
             </View>
           )}
         </View>

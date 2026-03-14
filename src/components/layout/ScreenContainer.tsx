@@ -15,7 +15,7 @@ export function ScreenContainer({
 }: ScreenContainerProps) {
   if (scroll) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50" edges={edges}>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={edges}>
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 100 }}
@@ -29,7 +29,7 @@ export function ScreenContainer({
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={edges}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={edges}>
       <View className="flex-1" {...props}>
         {children}
       </View>

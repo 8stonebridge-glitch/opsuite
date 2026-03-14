@@ -8,12 +8,14 @@ import { isOverdue } from '../../../src/utils/date';
 import { TaskPreviewSection } from '../../../src/components/overview/TaskPreviewSection';
 import { Card } from '../../../src/components/ui/Card';
 import { Avatar } from '../../../src/components/ui/Avatar';
+import { useTheme } from '../../../src/providers/ThemeProvider';
 
 export default function SiteDetailScreen() {
   const { siteId } = useLocalSearchParams<{ siteId: string }>();
   const { state } = useApp();
   const router = useRouter();
   const color = useIndustryColor();
+  const { isDark } = useTheme();
 
   const teams = useTeams();
   const site = state.onboarding.sites.find((s) => s.id === siteId);
@@ -39,22 +41,22 @@ export default function SiteDetailScreen() {
 
   if (!site) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <Text className="text-gray-400">Site not found</Text>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center">
+        <Text className="text-gray-400 dark:text-gray-500">Site not found</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center px-5 py-3 gap-3">
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color="#374151" />
+          <Ionicons name="chevron-back" size={24} color={isDark ? '#d1d5db' : '#374151'} />
         </Pressable>
         <View className="flex-1">
-          <Text className="text-lg font-bold text-gray-900">{site.name}</Text>
-          <Text className="text-xs text-gray-400">{siteTasks.length} total tasks</Text>
+          <Text className="text-lg font-bold text-gray-900 dark:text-gray-100">{site.name}</Text>
+          <Text className="text-xs text-gray-400 dark:text-gray-500">{siteTasks.length} total tasks</Text>
         </View>
       </View>
 
@@ -107,7 +109,7 @@ export default function SiteDetailScreen() {
 
           {siteTasks.length === 0 && (
             <View className="items-center py-12">
-              <Text className="text-sm text-gray-400">No tasks at this site</Text>
+              <Text className="text-sm text-gray-400 dark:text-gray-500">No tasks at this site</Text>
             </View>
           )}
         </View>
@@ -115,7 +117,7 @@ export default function SiteDetailScreen() {
         {/* Teams at this Site */}
         {teamsAtSite.length > 0 && (
           <View className="px-5 mt-2">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
               Teams at this site
             </Text>
             <Card>
@@ -130,13 +132,13 @@ export default function SiteDetailScreen() {
                   <View
                     key={team.id}
                     className={`flex-row items-center py-3 gap-3 ${
-                      idx < teamsAtSite.length - 1 ? 'border-b border-gray-100' : ''
+                      idx < teamsAtSite.length - 1 ? 'border-b border-gray-100 dark:border-gray-800' : ''
                     }`}
                   >
                     <Avatar name={team.name} color={team.color} size="sm" />
                     <View className="flex-1">
-                      <Text className="text-sm font-semibold text-gray-900">{team.name}</Text>
-                      <Text className="text-xs text-gray-400">
+                      <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">{team.name}</Text>
+                      <Text className="text-xs text-gray-400 dark:text-gray-500">
                         {teamTasksHere.length} tasks · {activeHere} active
                         {overdueHere > 0 ? ` · ${overdueHere} overdue` : ''}
                       </Text>
@@ -150,7 +152,7 @@ export default function SiteDetailScreen() {
 
         {/* Check-in Overview */}
         <View className="px-5 mt-4">
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
             Check-in Overview
           </Text>
           <Card>
@@ -162,17 +164,17 @@ export default function SiteDetailScreen() {
                 <Ionicons name="people" size={18} color="#059669" />
               </View>
               <View className="flex-1">
-                <Text className="text-sm font-semibold text-gray-900">
+                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   {checkInHealth.checkedInToday} of {checkInHealth.total} checked in
                 </Text>
-                <Text className="text-xs text-gray-400">Today's check-in rate</Text>
+                <Text className="text-xs text-gray-400 dark:text-gray-500">Today's check-in rate</Text>
               </View>
               <Text className="text-lg font-bold" style={{ color: '#059669' }}>
                 {checkInHealth.rate}%
               </Text>
             </View>
             {/* Progress bar */}
-            <View className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+            <View className="mt-3 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               <View
                 className="h-full rounded-full"
                 style={{
@@ -205,7 +207,7 @@ function StatPill({
       <Text className="text-base font-bold" style={{ color }}>
         {value}
       </Text>
-      <Text className="text-[10px] font-medium text-gray-400">{label}</Text>
+      <Text className="text-[10px] font-medium text-gray-400 dark:text-gray-500">{label}</Text>
     </View>
   );
 }

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useInbox } from './InboxProvider';
 import { useApp } from '../../store/AppContext';
+import { useTheme } from '../../providers/ThemeProvider';
 import type { AppNotification, Role } from '../../types';
 
 // ── Time formatting ──────────────────────────────────────────────────
@@ -45,10 +46,12 @@ function NotificationRow({
   isUnread: boolean;
   onPress: () => void;
 }) {
+  const { isDark } = useTheme();
+
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center px-5 py-3.5 active:bg-gray-50"
+      className="flex-row items-center px-5 py-3.5 active:bg-gray-50 dark:active:bg-gray-800"
     >
       {/* Unread dot */}
       <View className="w-3 items-center mr-2">
@@ -56,25 +59,25 @@ function NotificationRow({
       </View>
 
       {/* Icon */}
-      <View className="w-8 h-8 rounded-xl bg-gray-100 items-center justify-center mr-3">
-        <Ionicons name={iconForType(notification.type) as any} size={16} color="#6b7280" />
+      <View className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 items-center justify-center mr-3">
+        <Ionicons name={iconForType(notification.type) as any} size={16} color={isDark ? '#9ca3af' : '#6b7280'} />
       </View>
 
       {/* Content */}
       <View className="flex-1 mr-2">
-        <Text className="text-sm font-semibold text-gray-900" numberOfLines={1}>
+        <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100" numberOfLines={1}>
           {notification.title}
         </Text>
-        <Text className="text-[13px] text-gray-500 mt-0.5" numberOfLines={1}>
+        <Text className="text-[13px] text-gray-500 dark:text-gray-400 mt-0.5" numberOfLines={1}>
           {notification.body}
         </Text>
-        <Text className="text-[11px] text-gray-400 mt-1">
+        <Text className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
           {relativeTime(notification.timestamp)}
         </Text>
       </View>
 
       {/* Chevron */}
-      <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+      <Ionicons name="chevron-forward" size={16} color={isDark ? '#4b5563' : '#d1d5db'} />
     </Pressable>
   );
 }
@@ -84,6 +87,7 @@ function NotificationRow({
 export function InboxSheet() {
   const { notifications, seenAt, showInbox, closeInbox } = useInbox();
   const { state } = useApp();
+  const { isDark } = useTheme();
   const router = useRouter();
 
   const resolveNotificationPath = (notification: AppNotification, role: Role) => {
@@ -162,21 +166,21 @@ export function InboxSheet() {
 
   return (
     <Modal visible={showInbox} transparent animationType="slide">
-      <Pressable className="flex-1 bg-black/30" onPress={closeInbox} />
-      <View className="bg-white rounded-t-3xl max-h-[75%]">
+      <Pressable className="flex-1 bg-black/30 dark:bg-black/50" onPress={closeInbox} />
+      <View className="bg-white dark:bg-gray-950 rounded-t-3xl max-h-[75%]">
         {/* Header */}
-        <View className="flex-row items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
-          <Text className="text-base font-bold text-gray-900">Inbox</Text>
+        <View className="flex-row items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
+          <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Inbox</Text>
           <Pressable onPress={closeInbox} className="p-1">
-            <Ionicons name="close" size={22} color="#6b7280" />
+            <Ionicons name="close" size={22} color={isDark ? '#9ca3af' : '#6b7280'} />
           </Pressable>
         </View>
 
         {/* List */}
         {notifications.length === 0 ? (
           <View className="items-center py-16">
-            <Ionicons name="notifications-off-outline" size={40} color="#d1d5db" />
-            <Text className="text-sm text-gray-400 mt-3">No notifications yet</Text>
+            <Ionicons name="notifications-off-outline" size={40} color={isDark ? '#4b5563' : '#d1d5db'} />
+            <Text className="text-sm text-gray-400 dark:text-gray-500 mt-3">No notifications yet</Text>
           </View>
         ) : (
           <FlatList

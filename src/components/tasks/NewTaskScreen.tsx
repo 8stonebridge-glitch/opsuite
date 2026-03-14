@@ -19,6 +19,7 @@ import {
   useAllEmployees,
 } from '../../store/selectors';
 import { useBackendAuth } from '../../providers/BackendProviders';
+import { useTheme } from '../../providers/ThemeProvider';
 import { Select, type SelectOption } from '../ui/Select';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
@@ -37,6 +38,7 @@ export function NewTaskScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
   const { authEnabled } = useBackendAuth();
+  const { isDark } = useTheme();
   const color = useIndustryColor();
   const sitesLabel = useSitesLabel();
   const curName = useCurrentName();
@@ -52,7 +54,7 @@ export function NewTaskScreen() {
   // Show loading state while backend data is hydrating
   if (isBackendMode && !state.isAuthenticated) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+      <SafeAreaView className="flex-1 bg-white dark:bg-gray-950 items-center justify-center">
         <ActivityIndicator size="large" color={color} />
       </SafeAreaView>
     );
@@ -61,9 +63,9 @@ export function NewTaskScreen() {
   // If org has no sites or employees yet, show helpful message instead of empty form
   if (state.onboarding.sites.length === 0 && allEmployees.length === 0 && isBackendMode && membershipDirectory === undefined) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+      <SafeAreaView className="flex-1 bg-white dark:bg-gray-950 items-center justify-center">
         <ActivityIndicator size="large" color={color} />
-        <Text className="text-sm text-gray-400 mt-4">Loading workspace data...</Text>
+        <Text className="text-sm text-gray-400 dark:text-gray-500 mt-4">Loading workspace data...</Text>
       </SafeAreaView>
     );
   }
@@ -253,12 +255,12 @@ export function NewTaskScreen() {
   const singleSiteLabel = singularize(sitesLabel);
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-white dark:bg-gray-950" edges={['top']}>
       <View className="px-5 pt-6 pb-3 flex-row items-center justify-between">
         <Pressable onPress={() => router.back()}>
-          <Text className="text-base text-gray-400">Cancel</Text>
+          <Text className="text-base text-gray-400 dark:text-gray-500">Cancel</Text>
         </Pressable>
-        <Text className="text-base font-bold text-gray-900">Assign task</Text>
+        <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Assign task</Text>
         <Pressable
           onPress={() => {
             if (!isValid) {
@@ -270,7 +272,7 @@ export function NewTaskScreen() {
           disabled={isSubmitting}
         >
           <Text
-            className={`text-base font-bold ${!isValid || isSubmitting ? 'text-gray-300' : ''}`}
+            className={`text-base font-bold ${!isValid || isSubmitting ? 'text-gray-300 dark:text-gray-600' : ''}`}
             style={isValid && !isSubmitting ? { color } : undefined}
           >
             {isSubmitting ? 'Saving...' : 'Done'}
@@ -322,7 +324,7 @@ export function NewTaskScreen() {
           </View>
 
           <View>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Priority
             </Text>
             <View className="flex-row gap-2">
@@ -332,7 +334,7 @@ export function NewTaskScreen() {
                     key={val}
                     onPress={() => { setPriority(val); setTouched((prev) => ({ ...prev, priority: true })); }}
                     className={`flex-1 py-3.5 rounded-xl items-center ${
-                      priority !== val ? 'border border-gray-200' : ''
+                      priority !== val ? 'border border-gray-200 dark:border-gray-700' : ''
                     }`}
                     style={
                       priority === val
@@ -345,7 +347,7 @@ export function NewTaskScreen() {
                   >
                     <Text
                       className={`text-sm font-semibold ${
-                        priority === val ? 'text-white' : 'text-gray-500'
+                        priority === val ? 'text-white' : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {label}
@@ -360,7 +362,7 @@ export function NewTaskScreen() {
           </View>
 
           <View>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Due date
             </Text>
             {Platform.OS === 'web' ? (
@@ -370,14 +372,14 @@ export function NewTaskScreen() {
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => handleDateChange(e.target.value)}
                 style={{
-                  backgroundColor: '#f9fafb',
+                  backgroundColor: isDark ? '#111827' : '#f9fafb',
                   borderRadius: 16,
                   paddingLeft: 16,
                   paddingRight: 16,
                   paddingTop: 14,
                   paddingBottom: 14,
                   fontSize: 16,
-                  color: dueDate ? '#111827' : '#d1d5db',
+                  color: dueDate ? (isDark ? '#f3f4f6' : '#111827') : (isDark ? '#4b5563' : '#d1d5db'),
                   border: 'none',
                   outline: 'none',
                   width: '100%',
@@ -388,14 +390,14 @@ export function NewTaskScreen() {
               <>
                 <Pressable
                   onPress={() => setShowDatePicker(true)}
-                  className="bg-gray-50 rounded-2xl px-4 py-3.5 flex-row items-center justify-between"
+                  className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 flex-row items-center justify-between"
                 >
                   <Text
-                    className={`text-base ${dueDate ? 'text-gray-900' : 'text-gray-300'}`}
+                    className={`text-base ${dueDate ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}`}
                   >
                     {dueDate || 'Tap to select date'}
                   </Text>
-                  <Ionicons name="calendar-outline" size={20} color="#9ca3af" />
+                  <Ionicons name="calendar-outline" size={20} color={isDark ? '#6b7280' : '#9ca3af'} />
                 </Pressable>
                 {showDatePicker && DateTimePicker && (
                   <DateTimePicker
@@ -429,17 +431,17 @@ export function NewTaskScreen() {
           />
 
           <View>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Instruction note
             </Text>
             <TextInput
               value={note}
               onChangeText={setNote}
               placeholder="Optional note for employee"
-              placeholderTextColor="#d1d5db"
+              placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
               multiline
               numberOfLines={3}
-              className="bg-gray-50 rounded-2xl px-4 py-3.5 text-sm text-gray-900 min-h-[80px]"
+              className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-sm text-gray-900 dark:text-gray-100 min-h-[80px]"
               textAlignVertical="top"
             />
           </View>

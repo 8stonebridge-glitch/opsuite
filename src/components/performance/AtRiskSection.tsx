@@ -2,6 +2,7 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ScoreBadge } from './ScoreBadge';
 import { useAllEmployees } from '../../store/selectors';
+import { useTheme } from '../../providers/ThemeProvider';
 import type { EmployeePerformance } from '../../types';
 
 interface AtRiskSectionProps {
@@ -13,6 +14,7 @@ export function AtRiskSection({ employees, limit = 5 }: AtRiskSectionProps) {
   if (employees.length === 0) return null;
 
   const allEmployees = useAllEmployees();
+  const { isDark } = useTheme();
   const preview = employees.slice(0, limit);
 
   return (
@@ -24,7 +26,7 @@ export function AtRiskSection({ employees, limit = 5 }: AtRiskSectionProps) {
         </Text>
       </View>
 
-      <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <View className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
         {preview.map((perf, idx) => {
           const emp = allEmployees.find((e) => e.id === perf.employeeId);
           const topAction = perf.actions[0];
@@ -33,7 +35,7 @@ export function AtRiskSection({ employees, limit = 5 }: AtRiskSectionProps) {
           return (
             <View
               key={perf.employeeId}
-              className={`flex-row items-center px-3 py-2.5 ${!isLast ? 'border-b border-gray-50' : ''}`}
+              className={`flex-row items-center px-3 py-2.5 ${!isLast ? 'border-b border-gray-50 dark:border-gray-800' : ''}`}
             >
               {/* Avatar */}
               <View
@@ -41,24 +43,24 @@ export function AtRiskSection({ employees, limit = 5 }: AtRiskSectionProps) {
                   width: 28,
                   height: 28,
                   borderRadius: 14,
-                  backgroundColor: '#f3f4f6',
+                  backgroundColor: isDark ? '#1f2937' : '#f3f4f6',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 8,
                 }}
               >
-                <Text style={{ fontSize: 11, fontWeight: '600', color: '#6b7280' }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: isDark ? '#9ca3af' : '#6b7280' }}>
                   {(emp?.name || '?').charAt(0)}
                 </Text>
               </View>
 
               {/* Name + action */}
               <View className="flex-1 mr-2">
-                <Text className="text-sm text-gray-900" numberOfLines={1}>
+                <Text className="text-sm text-gray-900 dark:text-gray-100" numberOfLines={1}>
                   {emp?.name || 'Unknown'}
                 </Text>
                 {topAction && (
-                  <Text className="text-[10px] text-gray-400 mt-0.5" numberOfLines={1}>
+                  <Text className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5" numberOfLines={1}>
                     {topAction.label} — {topAction.target}
                   </Text>
                 )}
@@ -72,7 +74,7 @@ export function AtRiskSection({ employees, limit = 5 }: AtRiskSectionProps) {
       </View>
 
       {employees.length > limit && (
-        <Text className="text-[10px] text-gray-400 text-center mt-1">
+        <Text className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-1">
           +{employees.length - limit} more
         </Text>
       )}

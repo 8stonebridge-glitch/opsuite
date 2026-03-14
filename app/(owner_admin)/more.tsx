@@ -8,6 +8,7 @@ import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { authClient } from '../../src/lib/auth-client';
 import { useIndustryColor, useTeams, useAllEmployees } from '../../src/store/selectors';
+import { useTheme } from '../../src/providers/ThemeProvider';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
@@ -22,6 +23,7 @@ export default function OwnerMoreScreen() {
   const teams = useTeams();
   const allEmployees = useAllEmployees();
   const router = useRouter();
+  const { isDark, toggleTheme } = useTheme();
 
   const adjustSetting = async (key: 'noChangeAlertWorkdays' | 'reworkAlertCycles', delta: number) => {
     const current = state.orgSettings[key];
@@ -41,17 +43,17 @@ export default function OwnerMoreScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <View className="px-5 pt-4 gap-3">
           <Card className="items-center py-6">
             <Avatar name={state.onboarding.adminName || 'A'} color={color} size="lg" />
-            <Text className="text-lg font-bold text-gray-900 mt-3">
+            <Text className="text-lg font-bold text-gray-900 dark:text-gray-100 mt-3">
               {state.onboarding.adminName || 'Admin'}
             </Text>
-            <Text className="text-sm text-gray-400">Owner</Text>
+            <Text className="text-sm text-gray-400 dark:text-gray-500">Owner</Text>
           </Card>
 
           {/* Organizations */}
@@ -59,7 +61,7 @@ export default function OwnerMoreScreen() {
 
           {/* Operational Rules */}
           <Card>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
               Operational Rules
             </Text>
             <StepperRow
@@ -84,7 +86,7 @@ export default function OwnerMoreScreen() {
           </Card>
 
           <Card>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Organization
             </Text>
             <SettingRow icon="business" label="Org Name" value={state.onboarding.orgName} />
@@ -100,11 +102,31 @@ export default function OwnerMoreScreen() {
           </Card>
 
           <Card>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               App Settings
             </Text>
             <SettingRow icon="notifications-outline" label="Notifications" value="Coming soon" />
-            <SettingRow icon="color-palette-outline" label="Theme" value="Light" />
+            <Pressable
+              onPress={toggleTheme}
+              className={`flex-row gap-3 py-3 border-b border-gray-100 dark:border-gray-800`}
+              style={{ alignItems: 'flex-start' }}
+            >
+              <Ionicons name="color-palette-outline" size={18} color={isDark ? '#6b7280' : '#9ca3af'} />
+              <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1" style={{ paddingRight: 8, minWidth: 0 }}>
+                Theme
+              </Text>
+              <View className="flex-row items-center gap-2">
+                <Text
+                  className="text-sm text-gray-400 dark:text-gray-500 text-right"
+                  style={{ maxWidth: '46%', flexShrink: 1, flexWrap: 'wrap' }}
+                >
+                  {isDark ? 'Dark' : 'Light'}
+                </Text>
+                <View className={`w-10 h-6 rounded-full items-center justify-center flex-row px-0.5 ${isDark ? 'bg-emerald-600' : 'bg-gray-300'}`}>
+                  <View className={`w-5 h-5 rounded-full bg-white ${isDark ? 'ml-auto' : 'mr-auto'}`} />
+                </View>
+              </View>
+            </Pressable>
             <SettingRow icon="information-circle-outline" label="Version" value="1.0.0" last />
           </Card>
 
@@ -153,15 +175,15 @@ function SettingRow({
 }) {
   return (
     <View
-      className={`flex-row gap-3 py-3 ${last ? '' : 'border-b border-gray-100'}`}
+      className={`flex-row gap-3 py-3 ${last ? '' : 'border-b border-gray-100 dark:border-gray-800'}`}
       style={{ alignItems: 'flex-start' }}
     >
       <Ionicons name={icon as any} size={18} color="#9ca3af" />
-      <Text className="text-sm text-gray-700 flex-1" style={{ paddingRight: 8, minWidth: 0 }}>
+      <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1" style={{ paddingRight: 8, minWidth: 0 }}>
         {label}
       </Text>
       <Text
-        className="text-sm text-gray-400 text-right"
+        className="text-sm text-gray-400 dark:text-gray-500 text-right"
         style={{ maxWidth: '46%', flexShrink: 1, flexWrap: 'wrap' }}
       >
         {value}
@@ -190,22 +212,22 @@ function StepperRow({
   last?: boolean;
 }) {
   return (
-    <View className={`flex-row items-center gap-3 py-3 ${last ? '' : 'border-b border-gray-100'}`}>
+    <View className={`flex-row items-center gap-3 py-3 ${last ? '' : 'border-b border-gray-100 dark:border-gray-800'}`}>
       <Ionicons name={icon as any} size={18} color={color} />
-      <Text className="text-sm text-gray-700 flex-1">{label}</Text>
+      <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1">{label}</Text>
       <View className="flex-row items-center gap-2">
         <Pressable
           onPress={onMinus}
-          className="w-7 h-7 rounded-full bg-gray-100 items-center justify-center"
+          className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 items-center justify-center"
         >
           <Ionicons name="remove" size={16} color="#6b7280" />
         </Pressable>
-        <Text className="text-sm font-semibold text-gray-900 min-w-[3rem] text-center px-1" numberOfLines={1}>
+        <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 min-w-[3rem] text-center px-1" numberOfLines={1}>
           {value} {unit === 'workdays' ? 'd' : unit === 'cycles' ? 'x' : unit}
         </Text>
         <Pressable
           onPress={onPlus}
-          className="w-7 h-7 rounded-full bg-gray-100 items-center justify-center"
+          className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 items-center justify-center"
         >
           <Ionicons name="add" size={16} color="#6b7280" />
         </Pressable>

@@ -172,10 +172,21 @@ export function SessionBridge() {
 
     const { activeWorkspaceId, workspaces } = buildSyncedWorkspaces(organizations, activeOrganization);
 
+    // Derive the user's role and Convex userId from the active membership
+    const activeMembershipRole = activeOrganization?.membership?.role;
+    const convexUserId = viewer.user?._id ? String(viewer.user._id) : null;
+    const mappedRole: 'admin' | 'subadmin' | 'employee' =
+      activeMembershipRole === 'owner_admin' ? 'admin'
+      : activeMembershipRole === 'subadmin' ? 'subadmin'
+      : activeMembershipRole === 'employee' ? 'employee'
+      : 'admin';
+
     const snapshot = JSON.stringify({
       userId,
       email,
       activeWorkspaceId,
+      convexUserId,
+      mappedRole,
       workspaces: workspaces.map((workspace) => ({
         id: workspace.id,
         orgName: workspace.orgName,
@@ -196,6 +207,8 @@ export function SessionBridge() {
       email,
       workspaces,
       activeWorkspaceId: String(activeWorkspaceId),
+      backendRole: mappedRole,
+      backendUserId: convexUserId,
     });
     lastAppliedSnapshot.current = snapshot;
   }, [

@@ -41,7 +41,7 @@ export function OrgSwitcher() {
 
   return (
     <View>
-      <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+      <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
         Organizations ({state.workspaces.length})
       </Text>
       <View className="gap-2">
@@ -65,10 +65,10 @@ export function OrgSwitcher() {
                   <Ionicons name={icon as any} size={20} color={color} />
                 </View>
                 <View className="flex-1 min-w-0">
-                  <Text className="text-sm font-semibold text-gray-900" numberOfLines={2}>
+                  <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100" numberOfLines={2}>
                     {ws.orgName}
                   </Text>
-                  <Text className="text-xs text-gray-400" numberOfLines={2}>
+                  <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={2}>
                     {ws.industry?.name || 'General'}
                   </Text>
                 </View>

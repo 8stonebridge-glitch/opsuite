@@ -1,11 +1,12 @@
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ScoreBand } from '../../types';
+import { useTheme } from '../../providers/ThemeProvider';
 
-const BAND_COLORS: Record<ScoreBand, { ring: string; bg: string; text: string }> = {
-  green: { ring: '#059669', bg: '#ecfdf5', text: '#059669' },
-  amber: { ring: '#d97706', bg: '#fffbeb', text: '#d97706' },
-  red: { ring: '#dc2626', bg: '#fef2f2', text: '#dc2626' },
+const BAND_COLORS: Record<ScoreBand, { ring: string; bg: string; bgDark: string; text: string }> = {
+  green: { ring: '#059669', bg: '#ecfdf5', bgDark: '#052e16', text: '#059669' },
+  amber: { ring: '#d97706', bg: '#fffbeb', bgDark: '#451a03', text: '#d97706' },
+  red: { ring: '#dc2626', bg: '#fef2f2', bgDark: '#450a0a', text: '#dc2626' },
 };
 
 interface ScoreBadgeProps {
@@ -16,6 +17,7 @@ interface ScoreBadgeProps {
 }
 
 export function ScoreBadge({ score, band, trendDelta, size = 'sm' }: ScoreBadgeProps) {
+  const { isDark } = useTheme();
   const colors = BAND_COLORS[band];
   const dim = size === 'sm' ? 32 : 48;
   const ringWidth = size === 'sm' ? 2.5 : 3;
@@ -32,7 +34,7 @@ export function ScoreBadge({ score, band, trendDelta, size = 'sm' }: ScoreBadgeP
           borderRadius: dim / 2,
           borderWidth: ringWidth,
           borderColor: colors.ring,
-          backgroundColor: colors.bg,
+          backgroundColor: isDark ? colors.bgDark : colors.bg,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -80,11 +82,12 @@ const BAND_LABELS: Record<ScoreBand, string> = {
 };
 
 export function BandLabel({ band }: { band: ScoreBand }) {
+  const { isDark } = useTheme();
   const colors = BAND_COLORS[band];
   return (
     <View
       style={{
-        backgroundColor: colors.bg,
+        backgroundColor: isDark ? colors.bgDark : colors.bg,
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 999,

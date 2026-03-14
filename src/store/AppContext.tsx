@@ -101,6 +101,9 @@ export interface AppState {
   currentAccountId: string | null;
   currentAccountName: string | null;
   isDemo: boolean;
+  /** True when local state came from a cached hint and backend has not yet
+   *  confirmed. UI should gate on this before routing to role screens. */
+  pendingBackendAuth: boolean;
 }
 
 // ── Internal State (workspace registry) ─────────────────────────────────
@@ -113,6 +116,10 @@ interface InternalState {
   role: Role;
   userId: string | null;
   onboardingComplete: boolean;
+  /** True when state was hydrated from a localStorage hint but backend auth
+   *  has not yet confirmed the session. The index route should show a loading
+   *  screen instead of routing to a role group while this is true. */
+  pendingBackendAuth: boolean;
 }
 
 // ── Projection: InternalState → AppState ────────────────────────────────
@@ -137,6 +144,7 @@ const EMPTY_APP_STATE: AppState = {
   currentAccountId: null,
   currentAccountName: null,
   isDemo: false,
+  pendingBackendAuth: false,
 };
 
 function projectState(internal: InternalState): AppState {
@@ -159,6 +167,7 @@ function projectState(internal: InternalState): AppState {
     return {
       ...EMPTY_APP_STATE,
       isAuthenticated: true,
+      pendingBackendAuth: internal.pendingBackendAuth,
       currentAccountId: internal.currentAccountId,
       currentAccountName: currentAccount.name,
       isDemo: currentAccount.isDemo,
@@ -193,6 +202,7 @@ function projectState(internal: InternalState): AppState {
     })),
     activeWorkspaceId: ws.id,
     isAuthenticated: true,
+    pendingBackendAuth: internal.pendingBackendAuth,
     currentAccountId: internal.currentAccountId,
     currentAccountName: currentAccount.name,
     isDemo: currentAccount.isDemo,
@@ -441,9 +451,12 @@ function buildInitialInternalState(): InternalState {
     role: 'admin',
     userId: null,
     onboardingComplete: true,
+    pendingBackendAuth: false,
   };
 
-  // Hydrate from localStorage so new tabs start with correct auth state
+  // Hydrate from localStorage so new tabs start with correct auth state.
+  // Mark as pendingBackendAuth so the index route shows a loading screen
+  // until SessionBridge confirms the session with the backend.
   const hint = loadAuthHint();
   if (hint && !hint.isDemo) {
     const placeholderAccount: Account = {
@@ -460,6 +473,7 @@ function buildInitialInternalState(): InternalState {
       activeWorkspaceId: hint.activeWorkspaceId,
       role: hint.role,
       onboardingComplete: true,
+      pendingBackendAuth: true,
     };
   }
 
@@ -510,6 +524,8 @@ export type AppAction =
         orgSettings?: OrgSettings;
       }[];
       activeWorkspaceId: string;
+      backendRole?: Role;
+      backendUserId?: string | null;
     }
   | {
       type: 'SYNC_EXTERNAL_ACTIVE_STRUCTURE';
@@ -701,14 +717,18 @@ function flatReducer(state: AppState, action: Exclude<AppAction, InternalOnlyAct
 function internalReducer(internal: InternalState, action: AppAction): InternalState {
   // Handle auth & org-switching directly at the internal level
   if (action.type === 'SWITCH_ORGANIZATION') {
-    const exists = internal.workspaces.some((w) => w.id === action.workspaceId);
-    if (!exists) return internal;
+    // Only allow switching to workspaces owned by the current account
+    const belongsToCurrentAccount = internal.workspaces.some(
+      (w) => w.id === action.workspaceId && w.ownerId === internal.currentAccountId
+    );
+    if (!belongsToCurrentAccount) return internal;
     const currentAccount = internal.accounts.find((a) => a.id === internal.currentAccountId);
     if (currentAccount && !currentAccount.isDemo) {
       saveAuthHint({
         currentAccountId: currentAccount.id,
         activeWorkspaceId: action.workspaceId,
-        role: 'admin',
+        // Preserve current role until backend re-syncs after the switch
+        role: internal.role,
         accountName: currentAccount.name,
         accountEmail: currentAccount.email,
         isDemo: false,
@@ -717,8 +737,10 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
     return {
       ...internal,
       activeWorkspaceId: action.workspaceId,
-      role: 'admin',
-      userId: null,
+      // Keep current role — SessionBridge will re-sync the correct role
+      // from the backend after setActiveOrganization completes
+      role: internal.role,
+      userId: internal.userId,
     };
   }
 
@@ -743,6 +765,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       role: 'admin',
       userId: null,
       onboardingComplete: true,
+      pendingBackendAuth: !account.isDemo,
     };
   }
 
@@ -760,6 +783,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       role: 'admin',
       userId: null,
       onboardingComplete: true,
+      pendingBackendAuth: false,
     };
   }
 
@@ -804,6 +828,7 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       role: 'admin',
       userId: null,
       onboardingComplete: true,
+      pendingBackendAuth: false,
     };
   }
 
@@ -879,10 +904,13 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       syncedWorkspaces[0]?.id ||
       internal.activeWorkspaceId;
 
+    const resolvedRole: Role = action.backendRole || 'admin';
+    const resolvedUserId: string | null = action.backendUserId ?? null;
+
     saveAuthHint({
       currentAccountId: accountId,
       activeWorkspaceId,
-      role: 'admin',
+      role: resolvedRole,
       accountName: nextAccount.name,
       accountEmail: nextAccount.email,
       isDemo: false,
@@ -894,9 +922,10 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
       workspaces: [...otherWorkspaces, ...syncedWorkspaces],
       currentAccountId: accountId,
       activeWorkspaceId,
-      role: 'admin',
-      userId: null,
+      role: resolvedRole,
+      userId: resolvedUserId,
       onboardingComplete: true,
+      pendingBackendAuth: false,
     };
   }
 

@@ -15,6 +15,7 @@ import {
   useAllEmployees,
 } from '../../store/selectors';
 import { useBackendAuth } from '../../providers/BackendProviders';
+import { useTheme } from '../../providers/ThemeProvider';
 import { StatusBadge, PriorityBadge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -32,6 +33,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   const router = useRouter();
   const { state, dispatch } = useApp();
   const { authEnabled } = useBackendAuth();
+  const { isDark } = useTheme();
   const color = useIndustryColor();
   const curName = useCurrentName();
   const curRoleLabel = useCurrentRoleLabel();
@@ -64,16 +66,16 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
 
   if (isBackendMode && backendDetail === undefined) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <Text className="text-gray-400">Loading task...</Text>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center">
+        <Text className="text-gray-400 dark:text-gray-500">Loading task...</Text>
       </SafeAreaView>
     );
   }
 
   if (!task) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <Text className="text-gray-400">Task not found</Text>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center">
+        <Text className="text-gray-400 dark:text-gray-500">Task not found</Text>
         <Pressable onPress={() => router.back()} className="mt-4">
           <Text style={{ color }}>Go back</Text>
         </Pressable>
@@ -82,16 +84,26 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   }
 
   const overdue = isOverdue(task.due, task.status);
-  const canApprove =
-    (state.role === 'admin' || state.role === 'subadmin') &&
-    task.status === 'Pending Approval' &&
-    !task.approved;
-  const canVerify =
-    (state.role === 'admin' || state.role === 'subadmin') &&
-    task.status === 'Completed';
-  const canReject = canVerify;
-  const isAssignee = task.assigneeId === state.userId;
-  const hasStatusTransitions = getNextStatuses(task.status, state.role, isAssignee).length > 0;
+
+  // In backend mode, use server-computed permissions to avoid local userId mismatch
+  const canApprove = isBackendMode
+    ? Boolean(backendDetail?.canApprove)
+    : (state.role === 'admin' || state.role === 'subadmin') &&
+      task.status === 'Pending Approval' &&
+      !task.approved;
+  const canVerify = isBackendMode
+    ? Boolean(backendDetail?.canVerify)
+    : (state.role === 'admin' || state.role === 'subadmin') &&
+      task.status === 'Completed';
+  const canReject = isBackendMode
+    ? Boolean(backendDetail?.canRequestRework)
+    : canVerify;
+  const isAssignee = isBackendMode
+    ? Boolean(backendDetail?.isAssignee)
+    : task.assigneeId === state.userId;
+  const hasStatusTransitions = isBackendMode
+    ? Boolean(backendDetail?.canUpdateStatus)
+    : getNextStatuses(task.status, state.role, isAssignee).length > 0;
   // Show Update Status button unless dedicated buttons (approve/verify/reject) already cover it
   const canUpdate = hasStatusTransitions && !canApprove && !canVerify;
   const showDelegateBtn = isBackendMode
@@ -323,13 +335,13 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       {/* Header */}
-      <View className="bg-white px-5 py-4 flex-row items-center gap-3 border-b border-gray-100">
+      <View className="bg-white dark:bg-gray-900 px-5 py-4 flex-row items-center gap-3 border-b border-gray-100 dark:border-gray-800">
         <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#374151" />
+          <Ionicons name="arrow-back" size={22} color={isDark ? '#d1d5db' : '#374151'} />
         </Pressable>
-        <Text className="text-base font-bold text-gray-900 flex-1" numberOfLines={1}>
+        <Text className="text-base font-bold text-gray-900 dark:text-gray-100 flex-1" numberOfLines={1}>
           Task Detail
         </Text>
       </View>
@@ -337,7 +349,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Task info */}
         <Card className="mx-5 mt-4">
-          <Text className="text-lg font-bold text-gray-900 mb-3">{task.title}</Text>
+          <Text className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">{task.title}</Text>
           <View className="flex-row gap-2 mb-4">
             <StatusBadge status={task.status} />
             <PriorityBadge priority={task.priority} />
@@ -371,9 +383,9 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
           </View>
 
           {task.note && (
-            <View className="mt-4 p-3 bg-gray-50 rounded-xl">
-              <Text className="text-xs font-medium text-gray-400 mb-1">Instruction</Text>
-              <Text className="text-sm text-gray-700">{task.note}</Text>
+            <View className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+              <Text className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Instruction</Text>
+              <Text className="text-sm text-gray-700 dark:text-gray-300">{task.note}</Text>
             </View>
           )}
         </Card>
@@ -389,7 +401,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               />
             ) : (
               <Card>
-                <Text className="text-sm font-semibold text-gray-900 mb-2">Delegate to</Text>
+                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Delegate to</Text>
                 <Select
                   label=""
                   placeholder="Select team member"
@@ -441,7 +453,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
             )}
             {showVerifyConfirm && (
               <Card>
-                <Text className="text-sm font-semibold text-gray-900 mb-2">
+                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
                   Are you sure you want to verify and close this task?
                 </Text>
                 <View className="flex-row gap-2">
@@ -469,14 +481,14 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
             )}
             {showReject && (
               <Card>
-                <Text className="text-sm font-semibold text-gray-900 mb-2">Rework reason</Text>
+                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Rework reason</Text>
                 <TextInput
                   value={rejectReason}
                   onChangeText={setRejectReason}
                   placeholder="Why is rework needed?"
-                  placeholderTextColor="#d1d5db"
+                  placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
                   multiline
-                  className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-900 mb-3 min-h-[60px]"
+                  className="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-gray-100 mb-3 min-h-[60px]"
                 />
                 <View className="flex-row gap-2">
                   <Button
@@ -525,14 +537,14 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
 
         {/* Add note */}
         <Card className="mx-5 mt-4">
-          <Text className="text-sm font-semibold text-gray-900 mb-2">Add a note</Text>
+          <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Add a note</Text>
           <View className="flex-row gap-2">
             <TextInput
               value={noteText}
               onChangeText={setNoteText}
               placeholder="Write a note..."
-              placeholderTextColor="#d1d5db"
-              className="flex-1 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-900"
+              placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
+              className="flex-1 bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-gray-100"
             />
             <Pressable
               onPress={addNote}
@@ -547,7 +559,7 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
 
         {/* Audit trail */}
         <View className="mx-5 mt-4">
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
             Activity
           </Text>
           <AuditTrail entries={audit} />
@@ -568,11 +580,12 @@ function InfoRow({
   value: string;
   valueColor?: string;
 }) {
+  const { isDark } = useTheme();
   return (
     <View className="flex-row items-center gap-3">
-      <Ionicons name={icon as any} size={16} color="#9ca3af" />
-      <Text className="text-xs text-gray-400 w-20">{label}</Text>
-      <Text className="text-sm text-gray-900 flex-1" style={valueColor ? { color: valueColor } : undefined}>
+      <Ionicons name={icon as any} size={16} color={isDark ? '#6b7280' : '#9ca3af'} />
+      <Text className="text-xs text-gray-400 dark:text-gray-500 w-20">{label}</Text>
+      <Text className="text-sm text-gray-900 dark:text-gray-100 flex-1" style={valueColor ? { color: valueColor } : undefined}>
         {value}
       </Text>
     </View>

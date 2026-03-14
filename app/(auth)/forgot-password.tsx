@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { useTheme } from '../../src/providers/ThemeProvider';
 import { authClient } from '../../src/lib/auth-client';
 import { Button } from '../../src/components/ui/Button';
 
@@ -11,6 +12,7 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { dispatch } = useApp();
   const { isSignedIn } = useBackendAuth();
+  const { isDark } = useTheme();
 
   const handleClearCurrentSession = async () => {
     try {
@@ -21,7 +23,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white dark:bg-gray-950">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -36,14 +38,14 @@ export default function ForgotPasswordScreen() {
             onPress={() => router.back()}
             className="flex-row items-center gap-1 mb-6"
           >
-            <Ionicons name="arrow-back" size={18} color="#9ca3af" />
-            <Text className="text-sm text-gray-400">Back</Text>
+            <Ionicons name="arrow-back" size={18} color={isDark ? '#6b7280' : '#9ca3af'} />
+            <Text className="text-sm text-gray-400 dark:text-gray-500">Back</Text>
           </Pressable>
 
-          <Text className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
+          <Text className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-2">
             Password reset
           </Text>
-          <Text className="text-base text-gray-400 mb-8">
+          <Text className="text-base text-gray-400 dark:text-gray-500 mb-8">
             This Convex Auth build has email/password sign-in enabled, but password reset email delivery is not configured yet.
           </Text>
 

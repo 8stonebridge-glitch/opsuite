@@ -25,15 +25,15 @@ export function Button({
   const base = `rounded-2xl items-center justify-center ${sizeClass}`;
   const variants: Record<string, string> = {
     primary: 'bg-emerald-600 active:bg-emerald-700',
-    secondary: 'bg-gray-100 active:bg-gray-200',
+    secondary: 'bg-gray-100 dark:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700',
     danger: 'bg-red-600 active:bg-red-700',
-    outline: 'border border-gray-200 active:bg-gray-50',
+    outline: 'border border-gray-200 dark:border-gray-700 active:bg-gray-50 dark:active:bg-gray-800',
   };
   const textVariants: Record<string, string> = {
     primary: 'text-white font-semibold',
-    secondary: 'text-gray-800 font-semibold',
+    secondary: 'text-gray-800 dark:text-gray-200 font-semibold',
     danger: 'text-white font-semibold',
-    outline: 'text-gray-600 font-semibold',
+    outline: 'text-gray-600 dark:text-gray-300 font-semibold',
   };
 
   const dynamicStyle: ViewStyle | undefined =

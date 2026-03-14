@@ -22,6 +22,7 @@ import {
 import { isOverdue } from '../../utils/date';
 import { consecutiveNoChangeWorkdays, isStalledTask } from '../../utils/task-helpers';
 import { useBackendAuth } from '../../providers/BackendProviders';
+import { useTheme } from '../../providers/ThemeProvider';
 import type { Task, Team } from '../../types';
 
 type GroupBy = 'status' | 'site' | 'team';
@@ -84,6 +85,7 @@ function compareTasks(a: Task, b: Task, key: string, dir: 'asc' | 'desc', teams:
 
 export function TaskListScreen({ basePath }: TaskListScreenProps) {
   const { state } = useApp();
+  const { isDark } = useTheme();
   const router = useRouter();
   const searchParams = useLocalSearchParams<{ filter?: string }>();
   const { authEnabled } = useBackendAuth();
@@ -286,32 +288,32 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
 
       <View className="flex-1 px-5 pt-3">
         {isManager && (
-          <View className="flex-row rounded-2xl bg-gray-200 p-1 mb-4">
+          <View className="flex-row rounded-2xl bg-gray-200 dark:bg-gray-800 p-1 mb-4">
             <Pressable
               onPress={() => { setScope('assigned'); setFilter('active'); setTableVisibleCount(PAGE_SIZE); }}
               className={`flex-1 py-2.5 rounded-xl items-center ${
-                scope === 'assigned' ? 'bg-white shadow-sm' : ''
+                scope === 'assigned' ? 'bg-white dark:bg-gray-900 shadow-sm' : ''
               }`}
             >
-              <Text className={`text-sm font-semibold ${scope === 'assigned' ? 'text-gray-900' : 'text-gray-500'}`}>
+              <Text className={`text-sm font-semibold ${scope === 'assigned' ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
                 My Assigned{' '}
-                <Text className="text-gray-400 font-normal">{myAssigned.length}</Text>
+                <Text className="text-gray-400 dark:text-gray-500 font-normal">{myAssigned.length}</Text>
               </Text>
             </Pressable>
             <Pressable
               onPress={() => { setScope('all'); setFilter('active'); setTableVisibleCount(PAGE_SIZE); }}
               className={`flex-1 py-2.5 rounded-xl items-center ${
-                scope === 'all' ? 'bg-white shadow-sm' : ''
+                scope === 'all' ? 'bg-white dark:bg-gray-900 shadow-sm' : ''
               }`}
             >
-              <Text className={`text-sm font-semibold ${scope === 'all' ? 'text-gray-900' : 'text-gray-500'}`}>
+              <Text className={`text-sm font-semibold ${scope === 'all' ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
                 All Tasks{' '}
-                <Text className="text-gray-400 font-normal">{allScoped.length}</Text>
+                <Text className="text-gray-400 dark:text-gray-500 font-normal">{allScoped.length}</Text>
               </Text>
             </Pressable>
           </View>
@@ -329,24 +331,24 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
                   groupBy === 'status' ? 'site' : groupBy === 'site' ? 'team' : 'status';
                 setGroupBy(next);
               }}
-              className="h-10 w-10 rounded-xl bg-white border border-gray-200 items-center justify-center"
+              className="h-10 w-10 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 items-center justify-center"
             >
               <Ionicons
                 name={groupBy === 'site' ? 'location' : groupBy === 'team' ? 'people' : 'layers'}
                 size={16}
-                color={groupBy !== 'status' ? color : '#9ca3af'}
+                color={groupBy !== 'status' ? color : (isDark ? '#6b7280' : '#9ca3af')}
               />
             </Pressable>
           )}
           {/* Cards/Table toggle */}
           <Pressable
             onPress={() => setDisplayMode((m) => (m === 'cards' ? 'table' : 'cards'))}
-            className="h-10 w-10 rounded-xl bg-white border border-gray-200 items-center justify-center"
+            className="h-10 w-10 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 items-center justify-center"
           >
             <Ionicons
               name={displayMode === 'table' ? 'grid-outline' : 'list-outline'}
               size={16}
-              color={displayMode === 'table' ? color : '#9ca3af'}
+              color={displayMode === 'table' ? color : (isDark ? '#6b7280' : '#9ca3af')}
             />
           </Pressable>
         </View>
@@ -374,7 +376,7 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
                 <Text className={`text-xs font-semibold uppercase tracking-wider ${
                   section.title === 'Overdue' ? 'text-red-500' :
                   section.title === 'Stalled' ? 'text-amber-600' :
-                  section.title === 'Rework' ? 'text-amber-600' : 'text-gray-400'
+                  section.title === 'Rework' ? 'text-amber-600' : 'text-gray-400 dark:text-gray-500'
                 }`}>
                   {section.title} · {section.data.length}
                 </Text>

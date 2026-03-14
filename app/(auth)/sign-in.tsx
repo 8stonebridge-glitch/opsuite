@@ -233,7 +233,7 @@ export default function SignInScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white dark:bg-gray-950">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -247,31 +247,31 @@ export default function SignInScreen() {
             <View className="w-16 h-16 rounded-3xl bg-emerald-600 items-center justify-center mb-4">
               <Ionicons name="briefcase" size={32} color="white" />
             </View>
-            <Text className="text-3xl font-bold tracking-tight text-gray-900">
+            <Text className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
               OpSuite
             </Text>
-            <Text className="text-base text-gray-400 mt-1">
+            <Text className="text-base text-gray-400 dark:text-gray-500 mt-1">
               Operations management
             </Text>
           </View>
 
           {params.verified ? (
-            <View className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <Text className="text-sm font-semibold text-emerald-900 mb-1">
+            <View className="mb-6 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950 p-4">
+              <Text className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-1">
                 Email confirmed
               </Text>
-              <Text className="text-sm leading-6 text-emerald-800">
+              <Text className="text-sm leading-6 text-emerald-800 dark:text-emerald-300">
                 Your account is verified. Sign in to finish opening your workspace.
               </Text>
             </View>
           ) : null}
 
           {params.checkEmail ? (
-            <View className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-4">
-              <Text className="text-sm font-semibold text-sky-900 mb-1">
+            <View className="mb-6 rounded-2xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950 p-4">
+              <Text className="text-sm font-semibold text-sky-900 dark:text-sky-200 mb-1">
                 Check your inbox
               </Text>
-              <Text className="text-sm leading-6 text-sky-800">
+              <Text className="text-sm leading-6 text-sky-800 dark:text-sky-300">
                 We sent a confirmation email. Open the link there, then return here to sign in.
               </Text>
             </View>
@@ -312,7 +312,7 @@ export default function SignInScreen() {
             onPress={() => router.push('/(auth)/forgot-password')}
             className="self-end mb-6"
           >
-            <Text className="text-sm font-semibold text-emerald-600">
+            <Text className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
               Forgot password?
             </Text>
           </Pressable>
@@ -320,7 +320,7 @@ export default function SignInScreen() {
           {error ? (
             <View className="flex-row items-center gap-2 mb-4 px-1">
               <Ionicons name="alert-circle" size={16} color="#dc2626" />
-              <Text className="text-sm text-red-600">{error}</Text>
+              <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
             </View>
           ) : null}
 
@@ -345,9 +345,9 @@ export default function SignInScreen() {
             onPress={() => router.push('/(auth)/sign-up')}
             className="mt-6 items-center"
           >
-            <Text className="text-sm text-gray-400">
+            <Text className="text-sm text-gray-400 dark:text-gray-500">
               Don't have an account?{' '}
-              <Text className="text-emerald-600 font-semibold">Sign Up</Text>
+              <Text className="text-emerald-600 dark:text-emerald-400 font-semibold">Sign Up</Text>
             </Text>
           </Pressable>
         </ScrollView>

@@ -5,10 +5,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../src/components/ui/Button';
 import { useApp } from '../../src/store/AppContext';
+import { useTheme } from '../../src/providers/ThemeProvider';
 
 export default function OrgNameScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
+  const { isDark } = useTheme();
   const [name, setName] = useState(state.onboarding.orgName);
 
   const next = () => {
@@ -18,7 +20,7 @@ export default function OrgNameScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -28,23 +30,23 @@ export default function OrgNameScreen() {
             <View className="h-12 w-12 rounded-2xl bg-emerald-600 items-center justify-center mb-8">
               <Ionicons name="home" size={24} color="white" />
             </View>
-            <Text className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
+            <Text className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-2">
               Welcome
             </Text>
-            <Text className="text-base text-gray-400 mb-12">
+            <Text className="text-base text-gray-400 dark:text-gray-500 mb-12">
               Let's set up your workspace
             </Text>
-            <Text className="text-sm font-medium text-gray-500 mb-2">
+            <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
               Organization name
             </Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="Skyhomes Properties"
-              placeholderTextColor="#d1d5db"
+              placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
               autoFocus
               onSubmitEditing={next}
-              className="text-xl bg-white border border-gray-200 rounded-2xl px-5 py-4 text-gray-900"
+              className="text-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-4 text-gray-900 dark:text-gray-100"
             />
           </View>
           <Button title="Continue" onPress={next} disabled={!name.trim()} />

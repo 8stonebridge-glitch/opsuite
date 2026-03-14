@@ -5,6 +5,7 @@ import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
 import { useIndustryColor } from '../../store/selectors';
+import { useTheme } from '../../providers/ThemeProvider';
 import { getToday, getNowISO } from '../../utils/date';
 import { uid } from '../../utils/id';
 import { useBackendAuth } from '../../providers/BackendProviders';
@@ -18,6 +19,7 @@ export function LeaveRequestSheet({ visible, onClose }: LeaveRequestSheetProps) 
   const { state, dispatch } = useApp();
   const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
+  const { isDark } = useTheme();
   const today = getToday();
   const createAvailabilityRequest = useMutation(api.availability.createRequest);
 
@@ -72,51 +74,51 @@ export function LeaveRequestSheet({ visible, onClose }: LeaveRequestSheetProps) 
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <Pressable className="flex-1 bg-black/30" onPress={onClose} />
-      <View className="bg-white rounded-t-3xl px-5 pt-5 pb-10">
+      <Pressable className="flex-1 bg-black/30 dark:bg-black/50" onPress={onClose} />
+      <View className="bg-white dark:bg-gray-950 rounded-t-3xl px-5 pt-5 pb-10">
         <View className="flex-row items-center justify-between mb-5">
-          <Text className="text-base font-bold text-gray-900">Request Leave</Text>
+          <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Request Leave</Text>
           <Pressable onPress={onClose}>
-            <Ionicons name="close" size={22} color="#6b7280" />
+            <Ionicons name="close" size={22} color={isDark ? '#9ca3af' : '#6b7280'} />
           </Pressable>
         </View>
 
         {/* Start Date */}
-        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
           Start Date
         </Text>
         <TextInput
-          className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900 mb-4"
+          className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
           placeholder="YYYY-MM-DD"
           value={startDate}
           onChangeText={setStartDate}
-          placeholderTextColor="#d1d5db"
+          placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
         />
 
         {/* End Date */}
-        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
           End Date
         </Text>
         <TextInput
-          className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900 mb-4"
+          className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
           placeholder="YYYY-MM-DD"
           value={endDate}
           onChangeText={setEndDate}
-          placeholderTextColor="#d1d5db"
+          placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
         />
 
         {/* Notes */}
-        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
           Notes (optional)
         </Text>
         <TextInput
-          className="bg-gray-50 rounded-2xl px-4 py-3.5 text-base text-gray-900 mb-6"
+          className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-6"
           placeholder="Reason for leave..."
           value={notes}
           onChangeText={setNotes}
           multiline
           numberOfLines={2}
-          placeholderTextColor="#d1d5db"
+          placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
         />
 
         {/* Submit */}

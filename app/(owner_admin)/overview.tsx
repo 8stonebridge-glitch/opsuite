@@ -39,14 +39,14 @@ export default function OwnerOverviewScreen() {
   // Show loading spinner while workspace data is being hydrated from Convex
   if (authEnabled && isSignedIn && !state.onboarding.orgName) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center" edges={['top']}>
         <ActivityIndicator size="large" color={color} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
 
       <ScrollView
@@ -68,7 +68,7 @@ export default function OwnerOverviewScreen() {
           {/* Pending Availability Requests */}
           {pendingRequests.length > 0 && (
             <View>
-              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
                 Pending Requests ({pendingRequests.length})
               </Text>
               <View className="gap-2">
@@ -82,19 +82,19 @@ export default function OwnerOverviewScreen() {
           {/* Away Today */}
           {awayToday.length > 0 && (
             <View>
-              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
                 Away Today ({awayToday.length})
               </Text>
               <Card>
                 {awayToday.map((emp, i) => (
                   <View
                     key={emp.id}
-                    className={`flex-row items-center gap-3 py-2.5 ${i < awayToday.length - 1 ? 'border-b border-gray-50' : ''}`}
+                    className={`flex-row items-center gap-3 py-2.5 ${i < awayToday.length - 1 ? 'border-b border-gray-50 dark:border-gray-800' : ''}`}
                   >
                     <Avatar name={emp.name} color={emp.teamId ? '#6366f1' : '#9ca3af'} size="sm" />
                     <View className="flex-1">
-                      <Text className="text-sm font-medium text-gray-900">{emp.name}</Text>
-                      <Text className="text-xs text-gray-400">{emp.teamName}</Text>
+                      <Text className="text-sm font-medium text-gray-900 dark:text-gray-100">{emp.name}</Text>
+                      <Text className="text-xs text-gray-400 dark:text-gray-500">{emp.teamName}</Text>
                     </View>
                   </View>
                 ))}
@@ -105,22 +105,22 @@ export default function OwnerOverviewScreen() {
           {/* Coverage Needed */}
           {coverageNeeded.length > 0 && (
             <View>
-              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
                 Coverage Needed ({coverageNeeded.length})
               </Text>
               <Card>
                 {coverageNeeded.slice(0, 5).map((task, i) => (
                   <View
                     key={task.id}
-                    className={`flex-row items-center gap-3 py-2.5 ${i < Math.min(coverageNeeded.length, 5) - 1 ? 'border-b border-gray-50' : ''}`}
+                    className={`flex-row items-center gap-3 py-2.5 ${i < Math.min(coverageNeeded.length, 5) - 1 ? 'border-b border-gray-50 dark:border-gray-800' : ''}`}
                   >
                     <View className="w-1.5 h-1.5 rounded-full bg-orange-400" />
                     <View className="flex-1">
-                      <Text className="text-sm text-gray-900" numberOfLines={1}>{task.title}</Text>
-                      <Text className="text-xs text-gray-400">{task.site} · {task.assignee}</Text>
+                      <Text className="text-sm text-gray-900 dark:text-gray-100" numberOfLines={1}>{task.title}</Text>
+                      <Text className="text-xs text-gray-400 dark:text-gray-500">{task.site} · {task.assignee}</Text>
                     </View>
-                    <View className="px-2 py-0.5 rounded-full bg-orange-50">
-                      <Text className="text-[10px] font-semibold text-orange-600">Coverage</Text>
+                    <View className="px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950">
+                      <Text className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">Coverage</Text>
                     </View>
                   </View>
                 ))}
@@ -130,7 +130,7 @@ export default function OwnerOverviewScreen() {
 
           {/* Sites */}
           <View>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
               {state.onboarding.industry?.sitesLabel || 'Sites'}
             </Text>
             <View className="gap-2">
@@ -142,7 +142,7 @@ export default function OwnerOverviewScreen() {
 
           {/* Teams */}
           <View>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
               Teams
             </Text>
             <View className="gap-2">

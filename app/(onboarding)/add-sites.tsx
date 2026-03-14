@@ -7,10 +7,12 @@ import { Button } from '../../src/components/ui/Button';
 import { useApp } from '../../src/store/AppContext';
 import { uid } from '../../src/utils/id';
 import { generateSeedData } from '../../src/store/seed';
+import { useTheme } from '../../src/providers/ThemeProvider';
 
 export default function AddSitesScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
+  const { isDark } = useTheme();
   const [siteName, setSiteName] = useState('');
 
   const sitesLabel = state.onboarding.industry?.sitesLabel || 'Sites';
@@ -35,7 +37,7 @@ export default function AddSitesScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -45,15 +47,15 @@ export default function AddSitesScreen() {
             onPress={() => router.back()}
             className="flex-row items-center gap-1 mb-6"
           >
-            <Ionicons name="arrow-back" size={18} color="#9ca3af" />
-            <Text className="text-sm text-gray-400">Back</Text>
+            <Ionicons name="arrow-back" size={18} color={isDark ? '#6b7280' : '#9ca3af'} />
+            <Text className="text-sm text-gray-400 dark:text-gray-500">Back</Text>
           </Pressable>
 
           <View className="flex-1">
-            <Text className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
+            <Text className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-2">
               Add {sitesLabel.toLowerCase()}
             </Text>
-            <Text className="text-base text-gray-400 mb-8">
+            <Text className="text-base text-gray-400 dark:text-gray-500 mb-8">
               Where does your team work?
             </Text>
 
@@ -63,8 +65,8 @@ export default function AddSitesScreen() {
                 onChangeText={setSiteName}
                 onSubmitEditing={addSite}
                 placeholder="Main Office"
-                placeholderTextColor="#d1d5db"
-                className="flex-1 bg-white border border-gray-200 rounded-2xl px-4 py-3.5 text-base text-gray-900"
+                placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
+                className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100"
               />
               <Pressable
                 onPress={addSite}
@@ -82,9 +84,9 @@ export default function AddSitesScreen() {
               {state.onboarding.sites.map((s) => (
                 <View
                   key={s.id}
-                  className="flex-row items-center justify-between py-3.5 px-4 rounded-2xl bg-white border border-gray-100"
+                  className="flex-row items-center justify-between py-3.5 px-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
                 >
-                  <Text className="text-base font-medium text-gray-900">{s.name}</Text>
+                  <Text className="text-base font-medium text-gray-900 dark:text-gray-100">{s.name}</Text>
                   <Pressable onPress={() => dispatch({ type: 'REMOVE_SITE', siteId: s.id })}>
                     <Ionicons name="close" size={16} color="#d1d5db" />
                   </Pressable>

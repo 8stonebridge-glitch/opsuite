@@ -37,7 +37,7 @@ export default function SubAdminPeopleScreen() {
 
   if (!team) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
         <RoleSwitcher />
         <EmptyState icon="people-outline" title="No team found" />
       </SafeAreaView>
@@ -45,10 +45,10 @@ export default function SubAdminPeopleScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
       <View className="px-5 pt-4">
-        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
           {team.name} Team · {team.members.length} members
         </Text>
       </View>
@@ -66,7 +66,7 @@ export default function SubAdminPeopleScreen() {
               <Avatar name={member.name} color={index === 0 ? team.color : '#6b7280'} size="sm" />
               <View className="flex-1">
                 <View className="flex-row items-center gap-1.5">
-                  <Text className="text-sm font-medium text-gray-900">{member.name}</Text>
+                  <Text className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</Text>
                   {stats?.handoffToday && (
                     <Ionicons name="checkmark-circle" size={12} color="#059669" />
                   )}
@@ -90,7 +90,7 @@ export default function SubAdminPeopleScreen() {
                   )}
                 </View>
                 <View className="flex-row items-center gap-2">
-                  <Text className="text-xs text-gray-400">
+                  <Text className="text-xs text-gray-400 dark:text-gray-500">
                     {index === 0 ? 'Team Lead' : 'Member'}
                     {topAction ? ` · ${topAction.label}` : ''}
                   </Text>
