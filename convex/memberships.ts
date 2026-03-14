@@ -157,6 +157,41 @@ export const createProvisionedMember = mutation({
   },
 });
 
+/** Remove a member from the organization — owner only (soft-delete via status) */
+export const removeMember = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId, user: ownerUser } = await requireOwnerMembership(ctx);
+
+    if (args.userId === ownerUser._id) {
+      throw new Error("You cannot remove yourself");
+    }
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_organization_user", (q) =>
+        q.eq("organizationId", organizationId).eq("userId", args.userId),
+      )
+      .unique();
+
+    if (!membership) {
+      throw new Error("User is not a member of this organization");
+    }
+
+    const now = new Date().toISOString();
+    await ctx.db.patch(membership._id, {
+      status: "suspended",
+      teamIds: [],
+      siteIds: [],
+      updatedAt: now,
+    });
+
+    return { removed: true };
+  },
+});
+
 /** Update an existing member's profile (name, email) — owner only */
 export const updateMember = mutation({
   args: {

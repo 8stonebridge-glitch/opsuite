@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
@@ -79,6 +79,7 @@ export default function OwnerPeopleScreen() {
   const [editError, setEditError] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const updateMember = useMutation(api.memberships.updateMember);
+  const removeMember = useMutation(api.memberships.removeMember);
 
   const leadOptions = useMemo<LeadOption[]>(() => {
     const existingLeadIds = new Set(teams.map((team) => team.lead.id));
@@ -969,13 +970,47 @@ export default function OwnerPeopleScreen() {
             <Text className="text-sm text-red-600 mt-3">{editError}</Text>
           ) : null}
 
-          <View className="mt-5">
+          <View className="mt-5 gap-3">
             <Button
               title={isSavingEdit ? 'Saving...' : 'Save Changes'}
               onPress={() => void handleEditMember()}
               disabled={isSavingEdit}
               color={color}
             />
+            <Pressable
+              onPress={() => {
+                if (!editMember) return;
+                const doRemove = async () => {
+                  setIsSavingEdit(true);
+                  try {
+                    await removeMember({ userId: editMember.id as never });
+                    setEditMember(null);
+                  } catch (e) {
+                    setEditError(e instanceof Error ? e.message : 'Failed to remove person.');
+                  } finally {
+                    setIsSavingEdit(false);
+                  }
+                };
+                if (Platform.OS === 'web') {
+                  if (window.confirm(`Remove ${editMember.name} from this organization?`)) {
+                    void doRemove();
+                  }
+                } else {
+                  Alert.alert(
+                    'Remove Person',
+                    `Are you sure you want to remove ${editMember.name} from this organization?`,
+                    [
+                      { text: 'Cancel' },
+                      { text: 'Remove', style: 'destructive', onPress: () => void doRemove() },
+                    ],
+                  );
+                }
+              }}
+              disabled={isSavingEdit}
+              className="py-3 items-center"
+            >
+              <Text className="text-sm font-semibold text-red-500">Remove Person</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
