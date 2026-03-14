@@ -28,8 +28,12 @@ export const sendWelcome = action({
       "there";
 
     const apiKey = process.env.RESEND_API_KEY?.trim();
+    const from = process.env.AUTH_FROM_EMAIL?.trim();
     if (!apiKey) {
       return { ok: false, error: "RESEND_API_KEY is not set in Convex" as const };
+    }
+    if (!from) {
+      return { ok: false, error: "AUTH_FROM_EMAIL is not set in Convex" as const };
     }
 
     const subject = "Welcome to TaskHub";
@@ -49,7 +53,7 @@ export const sendWelcome = action({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "onboarding@resend.dev",
+        from,
         to: [to],
         subject,
         html,
