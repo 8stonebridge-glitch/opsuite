@@ -34,6 +34,10 @@ export default function SignUpScreen() {
   const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
+  const hasConfirmPassword = confirmPassword.length > 0;
+  const passwordsMatch = password === confirmPassword;
+  const passwordMismatchMessage =
+    hasConfirmPassword && !passwordsMatch ? 'Confirm password must match your password.' : '';
 
   const handleResendVerification = async () => {
     if (!pendingVerificationEmail) {
@@ -77,8 +81,8 @@ export default function SignUpScreen() {
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError('Passwords must match exactly.');
+    if (!passwordsMatch) {
+      setError('Confirm password must match your password.');
       return;
     }
 
@@ -260,6 +264,7 @@ export default function SignUpScreen() {
                 setPassword(text);
                 setError('');
               }}
+              className={passwordMismatchMessage ? 'border border-red-300 bg-red-50' : ''}
               secureTextEntry
             />
             <Input
@@ -270,8 +275,15 @@ export default function SignUpScreen() {
                 setConfirmPassword(text);
                 setError('');
               }}
+              className={passwordMismatchMessage ? 'border border-red-300 bg-red-50' : ''}
               secureTextEntry
             />
+            {passwordMismatchMessage ? (
+              <View className="flex-row items-center gap-2 px-1 -mt-2">
+                <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                <Text className="text-sm text-red-600 flex-1">{passwordMismatchMessage}</Text>
+              </View>
+            ) : null}
             <Input
               label="Organization Name"
               placeholder="Your company or team"
@@ -370,7 +382,7 @@ export default function SignUpScreen() {
               <Button
                 title={isSubmitting ? 'Creating account...' : 'Create Account'}
                 onPress={handleCreateAccount}
-                disabled={isSubmitting}
+                disabled={isSubmitting || Boolean(passwordMismatchMessage)}
                 className="w-full"
               />
             </>
