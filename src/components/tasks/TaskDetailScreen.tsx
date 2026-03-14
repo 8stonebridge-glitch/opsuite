@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -429,7 +429,14 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
               <Button title={isSubmitting ? 'Saving...' : 'Approve Task'} onPress={handleApprove} color={color} disabled={isSubmitting} />
             )}
             {canVerify && (
-              <Button title={isSubmitting ? 'Saving...' : 'Verify & Close'} onPress={handleVerify} color={color} disabled={isSubmitting} />
+              <Button title={isSubmitting ? 'Saving...' : 'Verify & Close'} onPress={() => Alert.alert(
+                'Verify & Close?',
+                'Are you sure you want to verify and close this task?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Verify', onPress: handleVerify },
+                ]
+              )} color={color} disabled={isSubmitting} />
             )}
             {canReject && !showReject && (
               <Button title="Request Rework" onPress={() => setShowReject(true)} variant="danger" disabled={isSubmitting} />
@@ -455,11 +462,18 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
                   />
                   <Button
                     title="Send to Rework"
-                    onPress={handleRework}
+                    onPress={() => Alert.alert(
+                      'Request Rework?',
+                      'This will send the task back for rework.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Send to Rework', style: 'destructive', onPress: handleRework },
+                      ]
+                    )}
                     variant="danger"
                     size="md"
                     className="flex-1"
-                    disabled={isSubmitting}
+                    disabled={!rejectReason.trim() || isSubmitting}
                   />
                 </View>
               </Card>

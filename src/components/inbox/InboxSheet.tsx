@@ -148,7 +148,12 @@ export function InboxSheet() {
 
   const handlePress = (notification: AppNotification) => {
     closeInbox();
-    const targetPath = resolveNotificationPath(notification, state.role);
+    let targetPath = resolveNotificationPath(notification, state.role);
+
+    // When a review notification points to the tasks list, auto-select the Review tab
+    if (notification.type === 'review' && !notification.taskId && targetPath.endsWith('/tasks')) {
+      targetPath += '?filter=review';
+    }
 
     setTimeout(() => {
       router.push(targetPath as any);

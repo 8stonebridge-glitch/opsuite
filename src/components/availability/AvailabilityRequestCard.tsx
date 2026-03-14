@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
@@ -113,7 +113,14 @@ export function AvailabilityRequestCard({ record, approverId }: AvailabilityRequ
 
       <View className="flex-row gap-2">
         <Pressable
-          onPress={() => void handleApprove()}
+          onPress={() => Alert.alert(
+            'Approve Request?',
+            'Are you sure you want to approve this leave request?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Approve', onPress: () => void handleApprove() },
+            ]
+          )}
           disabled={Boolean(isSubmitting)}
           className="flex-1 py-2.5 rounded-xl items-center bg-green-50"
         >
@@ -122,7 +129,14 @@ export function AvailabilityRequestCard({ record, approverId }: AvailabilityRequ
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => void handleReject()}
+          onPress={() => Alert.alert(
+            'Reject Request?',
+            'Are you sure you want to reject this leave request?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Reject', style: 'destructive', onPress: () => void handleReject() },
+            ]
+          )}
           disabled={Boolean(isSubmitting)}
           className="flex-1 py-2.5 rounded-xl items-center bg-red-50"
         >

@@ -385,6 +385,13 @@ export const create = mutation({
       }
     }
 
+    if (args.dueDate) {
+      const today = new Date().toISOString().split("T")[0];
+      if (args.dueDate < today!) {
+        throw new Error("Due date cannot be in the past");
+      }
+    }
+
     const now = new Date().toISOString();
     const delegatedAt =
       membership.role === "subadmin" &&
@@ -535,12 +542,27 @@ export const updateStatus = mutation({
     }
 
     if (isDone) {
+      const isAssignee = task.assignedToMembershipId === membership._id;
+      let completionMessage: string;
+      if (isAssignee) {
+        completionMessage = `✓ Task completed on ${today} by ${user.name} (${mapRole(membership.role)}). Awaiting verification.`;
+      } else {
+        const assigneeMembership = task.assignedToMembershipId
+          ? await ctx.db.get(task.assignedToMembershipId)
+          : null;
+        const assigneeUser = assigneeMembership
+          ? await ctx.db.get(assigneeMembership.userId)
+          : null;
+        const assigneeName = assigneeUser?.name || "assignee";
+        completionMessage = `✓ Task marked complete on ${today} by ${user.name} (${mapRole(membership.role)}) on behalf of ${assigneeName}. Awaiting verification.`;
+      }
+
       await insertTaskAudit(ctx, {
         organizationId,
         taskId: task._id,
         actorMembershipId: membership._id,
         type: "Status",
-        message: `✓ Task completed on ${today} by ${user.name} (${mapRole(membership.role)}). Awaiting verification.`,
+        message: completionMessage,
         createdAt: now,
       });
 
@@ -763,10 +785,14 @@ export const requestRework = mutation({
       .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
       .unique();
 
+    const reason = args.reason.trim();
+    if (!reason) {
+      throw new Error("A rework reason is required");
+    }
+
     const cycle = task.reworkCount + 1;
     const escalated = cycle >= (settings?.reworkAlertCycles ?? 3);
     const now = new Date().toISOString();
-    const reason = args.reason.trim() || "Rework required";
 
     await ctx.db.patch(task._id, {
       status: "In Progress",

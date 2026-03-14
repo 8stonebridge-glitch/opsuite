@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useApp } from '../../store/AppContext';
@@ -20,6 +21,13 @@ import { Button } from '../ui/Button';
 import { uid } from '../../utils/id';
 import { getToday, getNowISO } from '../../utils/date';
 import type { Task, Priority } from '../../types';
+
+/** Convert a plural sitesLabel to singular properly (e.g. "Properties" -> "Property") */
+function singularize(label: string): string {
+  if (label.endsWith('ies')) return label.slice(0, -3) + 'y';
+  if (label.endsWith('s')) return label.slice(0, -1);
+  return label;
+}
 
 export function NewTaskScreen() {
   const router = useRouter();
@@ -44,7 +52,10 @@ export function NewTaskScreen() {
   const [dueDate, setDueDate] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+  const [dueDateError, setDueDateError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const siteOptions: SelectOption[] = state.onboarding.sites.map((s) => ({
     label: s.name,
@@ -73,7 +84,39 @@ export function NewTaskScreen() {
       .map((entry) => [String(entry.user._id), entry])
   );
 
-  const isValid = title.trim() && siteId && assigneeId && priority;
+  const isPastDate = (dateStr: string) => {
+    if (!dateStr) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return dateStr < today!;
+  };
+
+  const isValid = title.trim() && siteId && assigneeId && priority && !isPastDate(dueDate);
+
+  /** Format a Date object to YYYY-MM-DD string */
+  const formatDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  /** Parse YYYY-MM-DD string to Date, or return today */
+  const parseDateValue = (): Date => {
+    if (dueDate) {
+      const parsed = new Date(dueDate + 'T00:00:00');
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  };
+
+  const handleDateChange = (dateStr: string) => {
+    setDueDate(dateStr);
+    if (isPastDate(dateStr)) {
+      setDueDateError('Due date cannot be in the past');
+    } else {
+      setDueDateError('');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!isValid) return;
@@ -182,6 +225,8 @@ export function NewTaskScreen() {
     }
   };
 
+  const singleSiteLabel = singularize(sitesLabel);
+
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <View className="px-5 pt-6 pb-3 flex-row items-center justify-between">
@@ -189,7 +234,16 @@ export function NewTaskScreen() {
           <Text className="text-base text-gray-400">Cancel</Text>
         </Pressable>
         <Text className="text-base font-bold text-gray-900">Assign task</Text>
-        <Pressable onPress={() => void handleSubmit()} disabled={!isValid || isSubmitting}>
+        <Pressable
+          onPress={() => {
+            if (!isValid) {
+              setTouched({ title: true, siteId: true, assigneeId: true, priority: true });
+              return;
+            }
+            void handleSubmit();
+          }}
+          disabled={isSubmitting}
+        >
           <Text
             className={`text-base font-bold ${!isValid || isSubmitting ? 'text-gray-300' : ''}`}
             style={isValid && !isSubmitting ? { color } : undefined}
@@ -201,24 +255,32 @@ export function NewTaskScreen() {
 
       <ScrollView className="flex-1 px-5 pb-8" showsVerticalScrollIndicator={false}>
         <View className="gap-5 pb-20">
-          <Input
-            label="Title"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="What needs to be done"
-            autoFocus
-            className="text-xl"
-          />
+          <View>
+            <Input
+              label="Title"
+              value={title}
+              onChangeText={(val) => { setTitle(val); setTouched((prev) => ({ ...prev, title: true })); }}
+              placeholder="What needs to be done"
+              autoFocus
+              className="text-xl"
+            />
+            {touched.title && !title.trim() ? (
+              <Text className="text-xs text-red-600 mt-1">Title is required</Text>
+            ) : null}
+          </View>
 
           <View className="flex-row gap-4">
             <View className="flex-1">
               <Select
-                label={sitesLabel.slice(0, -1)}
+                label={singleSiteLabel}
                 placeholder="Select"
                 options={siteOptions}
                 value={siteId}
-                onChange={setSiteId}
+                onChange={(val) => { setSiteId(val); setTouched((prev) => ({ ...prev, siteId: true })); }}
               />
+              {touched.siteId && !siteId ? (
+                <Text className="text-xs text-red-600 mt-1">{singleSiteLabel} is required</Text>
+              ) : null}
             </View>
             <View className="flex-1">
               <Select
@@ -226,8 +288,11 @@ export function NewTaskScreen() {
                 placeholder="Select"
                 options={empOptions}
                 value={assigneeId}
-                onChange={setAssigneeId}
+                onChange={(val) => { setAssigneeId(val); setTouched((prev) => ({ ...prev, assigneeId: true })); }}
               />
+              {touched.assigneeId && !assigneeId ? (
+                <Text className="text-xs text-red-600 mt-1">Assignee is required</Text>
+              ) : null}
             </View>
           </View>
 
@@ -240,7 +305,7 @@ export function NewTaskScreen() {
                 ([val, label]) => (
                   <Pressable
                     key={val}
-                    onPress={() => setPriority(val)}
+                    onPress={() => { setPriority(val); setTouched((prev) => ({ ...prev, priority: true })); }}
                     className={`flex-1 py-3.5 rounded-xl items-center ${
                       priority !== val ? 'border border-gray-200' : ''
                     }`}
@@ -264,15 +329,74 @@ export function NewTaskScreen() {
                 )
               )}
             </View>
+            {touched.priority && !priority ? (
+              <Text className="text-xs text-red-600 mt-1">Priority is required</Text>
+            ) : null}
           </View>
 
-          <Input
-            label="Due date"
-            value={dueDate}
-            onChangeText={setDueDate}
-            placeholder="YYYY-MM-DD"
-            keyboardType="numbers-and-punctuation"
-          />
+          <View>
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Due date
+            </Text>
+            {Platform.OS === 'web' ? (
+              <input
+                type="date"
+                value={dueDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => handleDateChange(e.target.value)}
+                style={{
+                  backgroundColor: '#f9fafb',
+                  borderRadius: 16,
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  paddingTop: 14,
+                  paddingBottom: 14,
+                  fontSize: 16,
+                  color: dueDate ? '#111827' : '#d1d5db',
+                  border: 'none',
+                  outline: 'none',
+                  width: '100%',
+                  fontFamily: 'inherit',
+                }}
+              />
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => setShowDatePicker(true)}
+                  className="bg-gray-50 rounded-2xl px-4 py-3.5 flex-row items-center justify-between"
+                >
+                  <Text
+                    className={`text-base ${dueDate ? 'text-gray-900' : 'text-gray-300'}`}
+                  >
+                    {dueDate || 'Tap to select date'}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color="#9ca3af" />
+                </Pressable>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={parseDateValue()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={new Date()}
+                    onChange={(_event, selectedDate) => {
+                      setShowDatePicker(Platform.OS === 'ios');
+                      if (selectedDate) {
+                        handleDateChange(formatDate(selectedDate));
+                      }
+                    }}
+                  />
+                )}
+              </>
+            )}
+            {dueDateError ? (
+              <Text className="text-xs text-red-600 mt-1">{dueDateError}</Text>
+            ) : null}
+            {dueDate ? (
+              <Pressable onPress={() => { setDueDate(''); setDueDateError(''); }} className="mt-1">
+                <Text className="text-xs text-gray-400">Clear date</Text>
+              </Pressable>
+            ) : null}
+          </View>
 
           <Select
             label="Category"

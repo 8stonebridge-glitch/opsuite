@@ -200,7 +200,7 @@ export default function OwnerOverviewScreen() {
             </Text>
             <View className="gap-2">
               {teams.map((team) => (
-                <TeamHealthRow key={team.id} teamId={team.id} teamName={team.name} teamColor={team.color} leadName={team.lead.name} memberCount={team.members.length} />
+                <TeamHealthRow key={team.id} teamId={team.id} teamName={team.name} teamColor={team.color} leadName={team.lead.name} memberCount={team.members.length + 1} />
               ))}
             </View>
           </View>

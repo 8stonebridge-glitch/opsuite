@@ -192,8 +192,9 @@ function getScopedEmployeeIds(
   role: Role
 ): string[] {
   if (role === 'admin') {
-    // All employees across all teams
-    return teams.flatMap((t) => [t.lead.id, ...t.members.map((m) => m.id)]);
+    // All employees across all teams (deduplicated)
+    const ids = teams.flatMap((t) => [t.lead.id, ...t.members.map((m) => m.id)]);
+    return [...new Set(ids)];
   }
   if (role === 'subadmin' && managerId) {
     const team = teams.find((t) => t.lead.id === managerId);

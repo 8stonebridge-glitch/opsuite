@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, SectionList, FlatList } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from 'convex/react';
@@ -85,6 +85,7 @@ function compareTasks(a: Task, b: Task, key: string, dir: 'asc' | 'desc', teams:
 export function TaskListScreen({ basePath }: TaskListScreenProps) {
   const { state } = useApp();
   const router = useRouter();
+  const searchParams = useLocalSearchParams<{ filter?: string }>();
   const { authEnabled } = useBackendAuth();
   const color = useIndustryColor();
   const teams = useTeams();
@@ -107,6 +108,14 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
   const [tableSortKey, setTableSortKey] = useState('due');
   const [tableSortDir, setTableSortDir] = useState<'asc' | 'desc'>('asc');
   const [tableVisibleCount, setTableVisibleCount] = useState(PAGE_SIZE);
+
+  // Auto-select tab when navigated with ?filter= query param (e.g. from inbox)
+  useEffect(() => {
+    const f = searchParams.filter?.toLowerCase();
+    if (f === 'review' || f === 'active' || f === 'done') {
+      setFilter(f as FilterValue);
+    }
+  }, [searchParams.filter]);
 
   const baseTasks = isManager ? (scope === 'assigned' ? myAssigned : allScoped) : allScoped;
   const stalledThreshold = state.orgSettings.noChangeAlertWorkdays;
