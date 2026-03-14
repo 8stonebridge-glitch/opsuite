@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +26,7 @@ export default function SignInScreen() {
   const [isClearingSession, setIsClearingSession] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [isRestoringWorkspace, setIsRestoringWorkspace] = useState(false);
+  const hasAutoRestoreAttempted = useRef(false);
 
   const normalizedEmail = email.trim().toLowerCase();
   const isDemoAccount = normalizedEmail === 'owner@opsuite.demo';
@@ -225,6 +226,33 @@ export default function SignInScreen() {
     }
   };
 
+  useEffect(() => {
+    if (state.isAuthenticated) {
+      hasAutoRestoreAttempted.current = false;
+      return;
+    }
+
+    if (!backendAuth.isSignedIn || !backendAuth.userId || !backendAuth.email) {
+      hasAutoRestoreAttempted.current = false;
+      return;
+    }
+
+    if (hasAutoRestoreAttempted.current || isSubmitting || isClearingSession || isRestoringWorkspace) {
+      return;
+    }
+
+    hasAutoRestoreAttempted.current = true;
+    void handleUseCurrentSession();
+  }, [
+    backendAuth.email,
+    backendAuth.isSignedIn,
+    backendAuth.userId,
+    isClearingSession,
+    isRestoringWorkspace,
+    isSubmitting,
+    state.isAuthenticated,
+  ]);
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
@@ -276,7 +304,7 @@ export default function SignInScreen() {
                 You’re already signed in
               </Text>
               <Text className="text-sm leading-6 text-amber-800">
-                There is already an active session on this device. You can continue with it or clear it before signing in again.
+                There is already an active session on this device. We&apos;re reconnecting it automatically now. If that does not finish, you can continue manually or clear it and sign in again.
               </Text>
               <View className="mt-4 gap-3">
                 <Button
