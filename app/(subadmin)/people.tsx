@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, FlatList } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../src/store/AppContext';
@@ -12,9 +12,11 @@ import { Card } from '../../src/components/ui/Card';
 import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { ScoreBadge } from '../../src/components/performance/ScoreBadge';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
 
 export default function SubAdminPeopleScreen() {
   const { state } = useApp();
+  const { authEnabled, isSignedIn } = useBackendAuth();
   const team = useMyTeam();
   const color = useIndustryColor();
   const allPerfs = useAllEmployeePerformances();
@@ -34,6 +36,14 @@ export default function SubAdminPeopleScreen() {
     }
     return map;
   }, [team, state.tasks, state.audit, state.handoffs, state.orgSettings.noChangeAlertWorkdays, today]);
+
+  if (authEnabled && isSignedIn && !state.onboarding.orgName) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center" edges={['top']}>
+        <ActivityIndicator size="large" color={color} />
+      </SafeAreaView>
+    );
+  }
 
   if (!team) {
     return (

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, Modal, TextInput, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
@@ -45,7 +45,7 @@ export default function OwnerPeopleScreen() {
   const allPerfs = useAllEmployeePerformances();
   const availability = useAvailability();
   const today = getToday();
-  const { authEnabled } = useBackendAuth();
+  const { authEnabled, isSignedIn } = useBackendAuth();
   const createTeam = useMutation(api.teams.create);
   const createProvisionedMember = useMutation(api.memberships.createProvisionedMember);
   const membershipDirectory = useQuery(
@@ -83,6 +83,14 @@ export default function OwnerPeopleScreen() {
   const updateMember = useMutation(api.memberships.updateMember);
   const removeMember = useMutation(api.memberships.removeMember);
   const reassignMember = useMutation(api.memberships.reassignMember);
+
+  if (authEnabled && isSignedIn && !state.onboarding.orgName) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center" edges={['top']}>
+        <ActivityIndicator size="large" color={color} />
+      </SafeAreaView>
+    );
+  }
 
   const leadOptions = useMemo<LeadOption[]>(() => {
     const existingLeadIds = new Set(teams.map((team) => team.lead.id));

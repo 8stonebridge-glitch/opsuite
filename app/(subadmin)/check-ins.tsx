@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, FlatList } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../src/store/AppContext';
@@ -10,9 +10,11 @@ import { Avatar } from '../../src/components/ui/Avatar';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { getToday } from '../../src/utils/date';
 import { getCurrentWeekDays, getDayLabel } from '../../src/utils/checkin-helpers';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
 
 export default function SubAdminCheckInsScreen() {
   const { state } = useApp();
+  const { authEnabled, isSignedIn } = useBackendAuth();
   const team = useMyTeam();
   const color = useIndustryColor();
   const today = getToday();
@@ -53,8 +55,16 @@ export default function SubAdminCheckInsScreen() {
     });
   }, [weekDays, teamCheckIns, today]);
 
+  if (authEnabled && isSignedIn && !state.onboarding.orgName) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950 items-center justify-center" edges={['top']}>
+        <ActivityIndicator size="large" color={color} />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
 
       <View className="px-5 pt-4">
