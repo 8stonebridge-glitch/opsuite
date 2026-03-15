@@ -15,6 +15,16 @@ export default function AuthLayout() {
     );
   }
 
+  // Local state says authenticated but backend session hasn't confirmed yet —
+  // hold on the spinner to avoid a brief flash of the sign-in form.
+  if (state.isAuthenticated && backendAuth.authEnabled && !backendAuth.isSignedIn) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white dark:bg-gray-950">
+        <ActivityIndicator color="#059669" size="large" />
+      </View>
+    );
+  }
+
   if (state.isAuthenticated) {
     let targetRoute = "/";
     switch (state.role) {
