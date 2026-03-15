@@ -68,7 +68,7 @@ export function TaskTableRow({ task, role, onPress, isLast }: TaskTableRowProps)
       </View>
 
       {/* Due */}
-      <View style={{ width: 64, alignItems: 'flex-end' }}>
+      <View style={{ width: 80, alignItems: 'flex-end' }}>
         {due ? (
           <Text
             className={`text-[10px] ${

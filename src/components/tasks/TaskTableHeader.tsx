@@ -33,7 +33,7 @@ export function TaskTableHeader({ sortKey, sortDir, onSort }: TaskTableHeaderPro
                 ? { flex: 1, marginRight: 8 }
                 : col.key === 'status'
                 ? { marginRight: 8 }
-                : { width: 64, justifyContent: 'flex-end' }
+                : { width: 80, justifyContent: 'flex-end' }
             }
           >
             <Text

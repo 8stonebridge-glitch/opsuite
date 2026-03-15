@@ -111,7 +111,7 @@ export function TaskCard({ task, onPress, quickActions, stalledDays, assigneeAwa
           )}
 
           {/* Meta row */}
-          <View className="flex-row items-center gap-3 mt-2 ml-4">
+          <View className="flex-row items-center gap-3 mt-2 ml-4 flex-wrap">
             <View className="flex-row items-center gap-1">
               <Ionicons name="person-outline" size={11} color={isDark ? '#6b7280' : '#9ca3af'} />
               <Text className="text-xs text-gray-400 dark:text-gray-500">{task.assignee}</Text>
