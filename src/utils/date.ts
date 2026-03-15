@@ -17,6 +17,7 @@ export function formatDue(date: string | null): string | null {
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
+    year: 'numeric',
   });
 }
 

@@ -651,6 +651,8 @@ export default function OwnerPeopleScreen() {
                             setEditName(member.name);
                             setEditEmail('');
                             setEditPassword('');
+                            setEditTeamId(team.id);
+                            setEditSiteId(team.siteId || '');
                             setEditError('');
                           } : undefined}
                         />
