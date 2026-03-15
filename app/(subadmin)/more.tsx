@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../src/store/AppContext';
-import { authClient } from '../../src/lib/auth-client';
+import { useAuth } from '../../src/lib/clerk';
 import { useCurrentName, useMyTeam, useIndustryColor } from '../../src/store/selectors';
 import { ThemeSwitcher } from '../../src/components/ui/ThemeSwitcher';
 import { Card } from '../../src/components/ui/Card';
@@ -13,6 +13,7 @@ import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 
 export default function SubAdminMoreScreen() {
   const { state, dispatch } = useApp();
+  const { signOut: clerkSignOut } = useAuth();
   const name = useCurrentName();
   const team = useMyTeam();
   const color = useIndustryColor();
@@ -68,7 +69,7 @@ export default function SubAdminMoreScreen() {
               const doSignOut = async () => {
                 dispatch({ type: 'SIGN_OUT' });
                 if (!state.isDemo) {
-                  try { await authClient.signOut(); } catch (e) { console.warn('Sign-out error:', e); }
+                  try { await clerkSignOut(); } catch (e) { console.warn('Sign-out error:', e); }
                 }
                 router.replace('/(auth)/sign-in');
               };

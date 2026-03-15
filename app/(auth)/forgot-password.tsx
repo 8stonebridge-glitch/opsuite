@@ -2,21 +2,20 @@ import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../src/lib/clerk';
 import { useApp } from '../../src/store/AppContext';
-import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { useTheme } from '../../src/providers/ThemeProvider';
-import { authClient } from '../../src/lib/auth-client';
 import { Button } from '../../src/components/ui/Button';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { dispatch } = useApp();
-  const { isSignedIn } = useBackendAuth();
+  const { signOut, isSignedIn } = useAuth();
   const { isDark } = useTheme();
 
   const handleClearCurrentSession = async () => {
     try {
-      await authClient.signOut();
+      await signOut();
     } finally {
       dispatch({ type: 'SIGN_OUT' });
     }
@@ -46,17 +45,8 @@ export default function ForgotPasswordScreen() {
             Password reset
           </Text>
           <Text className="text-base text-gray-400 dark:text-gray-500 mb-8">
-            This Convex Auth build has email/password sign-in enabled, but password reset email delivery is not configured yet.
+            Contact your admin to reset your password, or use Clerk's forgot password flow from the sign-in page.
           </Text>
-
-          <View className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mb-6">
-            <Text className="text-sm font-semibold text-amber-900 mb-1">
-              Reset not configured
-            </Text>
-            <Text className="text-sm leading-6 text-amber-800">
-              For now, use a known test account or have us wire an email provider for Better Auth before launch.
-            </Text>
-          </View>
 
           <View className="gap-3">
             <Button

@@ -7,7 +7,7 @@ import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
-import { authClient } from '../../src/lib/auth-client';
+import { useAuth } from '../../src/lib/clerk';
 import { useIndustryColor, useTeams, useAllEmployees, useOrgMode, useSitesLabel } from '../../src/store/selectors';
 import { useTheme } from '../../src/providers/ThemeProvider';
 import { ThemeSwitcher } from '../../src/components/ui/ThemeSwitcher';
@@ -21,6 +21,7 @@ import { uid } from '../../src/utils/id';
 export default function OwnerMoreScreen() {
   const { state, dispatch } = useApp();
   const { authEnabled } = useBackendAuth();
+  const { signOut: clerkSignOut } = useAuth();
   const updateOrgSettings = useMutation(api.orgSettings.update);
   const updateOrgMode = useMutation(api.organizations.updateMode);
   const createSiteMutation = useMutation(api.sites.create);
@@ -239,7 +240,7 @@ export default function OwnerMoreScreen() {
                 dispatch({ type: 'SIGN_OUT' });
                 // Await auth cookie clear to prevent auto-re-authentication
                 if (!state.isDemo) {
-                  try { await authClient.signOut(); } catch (e) { console.warn('Sign-out error:', e); }
+                  try { await clerkSignOut(); } catch (e) { console.warn('Sign-out error:', e); }
                 }
                 router.replace('/(auth)/sign-in');
               };

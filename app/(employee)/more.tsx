@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../src/store/AppContext';
-import { authClient } from '../../src/lib/auth-client';
+import { useAuth } from '../../src/lib/clerk';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useCurrentName, useMyTeam, useIndustryColor, useCheckInStats, useAvailability } from '../../src/store/selectors';
@@ -22,6 +22,7 @@ import { AvailabilityHistory } from '../../src/components/availability/Availabil
 
 export default function EmployeeMoreScreen() {
   const { state, dispatch } = useApp();
+  const { signOut: clerkSignOut } = useAuth();
   const name = useCurrentName();
   const team = useMyTeam();
   const color = useIndustryColor();
@@ -169,7 +170,7 @@ export default function EmployeeMoreScreen() {
               const doSignOut = async () => {
                 dispatch({ type: 'SIGN_OUT' });
                 if (!state.isDemo) {
-                  try { await authClient.signOut(); } catch (e) { console.warn('Sign-out error:', e); }
+                  try { await clerkSignOut(); } catch (e) { console.warn('Sign-out error:', e); }
                 }
                 router.replace('/(auth)/sign-in');
               };

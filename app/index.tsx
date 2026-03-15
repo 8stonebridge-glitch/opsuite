@@ -2,8 +2,8 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../src/lib/clerk';
 import { useApp } from '../src/store/AppContext';
-import { authClient } from '../src/lib/auth-client';
 import { useBackendAuth } from '../src/providers/BackendProviders';
 
 function SilentLoadingScreen({
@@ -43,22 +43,13 @@ function SilentLoadingScreen({
 export default function Index() {
   const { state, dispatch } = useApp();
   const { authEnabled, isLoaded, isSignedIn } = useBackendAuth();
+  const { signOut } = useAuth();
   const shouldUseLegacyOnboarding = !authEnabled;
 
   const handleForceSignIn = () => {
-    authClient.signOut().catch(() => {});
+    signOut().catch(() => {});
     dispatch({ type: 'SIGN_OUT' });
   };
-
-  // Auth session exists but local state not yet synced — show silent spinner
-  // while SessionBridge syncs in the background
-  if (!state.isAuthenticated && authEnabled && isLoaded && isSignedIn) {
-    return <SilentLoadingScreen onTimeout={handleForceSignIn} />;
-  }
-
-  if (!state.isAuthenticated) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
 
   // Auth still loading after local state is set — show silent spinner
   if (authEnabled && !isLoaded) {
@@ -69,6 +60,16 @@ export default function Index() {
   // the real Convex session — hold here instead of routing with stale data
   if (state.pendingBackendAuth && authEnabled) {
     return <SilentLoadingScreen onTimeout={handleForceSignIn} />;
+  }
+
+  // Auth session exists but local state not yet synced — show silent spinner
+  // while SessionBridge syncs in the background
+  if (!state.isAuthenticated && authEnabled && isLoaded && isSignedIn) {
+    return <SilentLoadingScreen onTimeout={handleForceSignIn} />;
+  }
+
+  if (!state.isAuthenticated) {
+    return <Redirect href="/(auth)/sign-in" />;
   }
 
   if (!state.onboardingComplete && shouldUseLegacyOnboarding) {

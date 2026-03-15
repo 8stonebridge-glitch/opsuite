@@ -1,45 +1,31 @@
-import { Platform } from 'react-native';
+// Clerk auth client — replaces Better Auth.
+// The actual ClerkProvider is set up in BackendProviders.tsx.
+// This file exports the publishable key and token cache for Convex.
 import * as SecureStore from 'expo-secure-store';
-import { createAuthClient } from 'better-auth/react';
-import { expoClient } from '@better-auth/expo/client';
-import { convexClient, crossDomainClient } from '@convex-dev/better-auth/client/plugins';
+import { Platform } from 'react-native';
+import type { TokenCache } from '@clerk/clerk-expo';
 
-function deriveConvexSiteUrl(convexUrl?: string | null) {
-  if (!convexUrl) return null;
-  return convexUrl.replace('.convex.cloud', '.convex.site');
-}
+export const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
 
-export const authBaseUrl =
-  process.env.EXPO_PUBLIC_CONVEX_SITE_URL?.trim() ||
-  deriveConvexSiteUrl(process.env.EXPO_PUBLIC_CONVEX_URL?.trim()) ||
-  null;
+const createTokenCache = (): TokenCache => {
+  return {
+    getToken: async (key: string) => {
+      try {
+        const item = await SecureStore.getItemAsync(key);
+        return item;
+      } catch {
+        await SecureStore.deleteItemAsync(key);
+        return null;
+      }
+    },
+    saveToken: (key: string, token: string) => {
+      return SecureStore.setItemAsync(key, token);
+    },
+    clearToken: (key: string) => {
+      return SecureStore.deleteItemAsync(key);
+    },
+  };
+};
 
-// TODO: Before production launch, replace this Convex-site confirmation callback
-// with the real public confirmation page URL, e.g. https://your-domain.com/email-confirmed.
-export const emailVerificationCallbackUrl = authBaseUrl
-  ? `${authBaseUrl.replace(/\/$/, '')}/email-confirmed`
-  : 'http://localhost/email-confirmed';
-
-const authPlugins:
-  | [ReturnType<typeof convexClient>, ReturnType<typeof crossDomainClient>]
-  | [ReturnType<typeof convexClient>, ReturnType<typeof expoClient>] =
-  Platform.OS === 'web'
-    ? [
-        convexClient(),
-        crossDomainClient({
-          storagePrefix: 'taskhub',
-        }),
-      ]
-    : [
-        convexClient(),
-        expoClient({
-          scheme: 'taskhub',
-          storagePrefix: 'taskhub',
-          storage: SecureStore,
-        }),
-      ];
-
-export const authClient = createAuthClient({
-  baseURL: authBaseUrl || 'http://localhost',
-  plugins: authPlugins,
-});
+// Only use SecureStore on native; web uses cookies automatically
+export const tokenCache = Platform.OS !== 'web' ? createTokenCache() : undefined;

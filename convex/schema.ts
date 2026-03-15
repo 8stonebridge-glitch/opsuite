@@ -223,4 +223,28 @@ export default defineSchema({
     createdAt: v.string(),
     updatedAt: v.string(),
   }).index('by_organization_id', ['organizationId']),
+
+  notifications: defineTable({
+    organizationId: v.id('organizations'),
+    membershipId: v.id('memberships'),
+    title: v.string(),
+    body: v.string(),
+    type: v.union(
+      v.literal('task'),
+      v.literal('availability'),
+      v.literal('handoff'),
+      v.literal('coverage'),
+      v.literal('review'),
+      v.literal('system')
+    ),
+    taskId: v.optional(v.id('tasks')),
+    route: v.optional(v.string()),
+    isRead: v.boolean(),
+    isDismissed: v.boolean(),
+    createdAt: v.string(),
+  })
+    .index('by_organization_id', ['organizationId'])
+    .index('by_membership_id', ['membershipId'])
+    .index('by_membership_read', ['membershipId', 'isRead'])
+    .index('by_membership_dismissed', ['membershipId', 'isDismissed']),
 });

@@ -1,15 +1,16 @@
 import { createContext, useContext, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { ConvexReactClient } from 'convex/react';
-import { ConvexProvider } from 'convex/react';
-import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
-import { authBaseUrl, authClient } from '../lib/auth-client';
+import { ConvexProviderWithClerk } from 'convex/react-clerk';
+import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
+import { clerkPublishableKey, tokenCache } from '../lib/auth-client';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex =
   convexUrl && convexUrl.trim().length > 0
     ? new ConvexReactClient(convexUrl)
     : null;
-const authEnabled = Boolean(convex && authBaseUrl);
+const authEnabled = Boolean(convex && clerkPublishableKey);
 
 interface BackendAuthState {
   authEnabled: boolean;
@@ -31,19 +32,19 @@ const defaultBackendAuthState: BackendAuthState = {
 
 const BackendAuthContext = createContext<BackendAuthState>(defaultBackendAuthState);
 
-function BetterAuthStatusProvider({ children }: { children: ReactNode }) {
-  const { data: session, isPending } = authClient.useSession();
-  const user = session?.user;
+function ClerkAuthStatusProvider({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const { user } = useUser();
 
   return (
     <BackendAuthContext.Provider
       value={{
         authEnabled: true,
-        isLoaded: !isPending,
-        isSignedIn: Boolean(session?.session),
-        userId: user?.id || null,
-        email: user?.email || null,
-        fullName: user?.name || null,
+        isLoaded,
+        isSignedIn: Boolean(isSignedIn),
+        userId: userId || null,
+        email: user?.primaryEmailAddress?.emailAddress || null,
+        fullName: user?.fullName || user?.firstName || null,
       }}
     >
       {children}
@@ -52,7 +53,7 @@ function BetterAuthStatusProvider({ children }: { children: ReactNode }) {
 }
 
 export function BackendProviders({ children }: { children: ReactNode }) {
-  if (!convex) {
+  if (!convex || !clerkPublishableKey) {
     return (
       <BackendAuthContext.Provider value={defaultBackendAuthState}>
         {children}
@@ -60,18 +61,20 @@ export function BackendProviders({ children }: { children: ReactNode }) {
     );
   }
 
+  const clerkProps: Record<string, unknown> = {
+    publishableKey: clerkPublishableKey,
+  };
+  // tokenCache is only for native (SecureStore)
+  if (Platform.OS !== 'web' && tokenCache) {
+    clerkProps.tokenCache = tokenCache;
+  }
+
   return (
-    <ConvexProvider client={convex}>
-      {authEnabled ? (
-        <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-          <BetterAuthStatusProvider>{children}</BetterAuthStatusProvider>
-        </ConvexBetterAuthProvider>
-      ) : (
-        <BackendAuthContext.Provider value={defaultBackendAuthState}>
-          {children}
-        </BackendAuthContext.Provider>
-      )}
-    </ConvexProvider>
+    <ClerkProvider {...clerkProps}>
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <ClerkAuthStatusProvider>{children}</ClerkAuthStatusProvider>
+      </ConvexProviderWithClerk>
+    </ClerkProvider>
   );
 }
 

@@ -85,8 +85,12 @@ export function displayNameFromIdentity(identity: Record<string, unknown>) {
 }
 
 export function emailFromIdentity(identity: Record<string, unknown>) {
-  const email = typeof identity.email === "string" ? identity.email.trim().toLowerCase() : "";
+  // Clerk may expose the email as "email" or "emailAddress" depending on the JWT template
+  const email =
+    (typeof identity.email === "string" ? identity.email.trim().toLowerCase() : "") ||
+    (typeof identity.emailAddress === "string" ? identity.emailAddress.trim().toLowerCase() : "");
   if (!email) {
+    console.error("Identity fields available:", Object.keys(identity));
     throw new Error("Authenticated identity is missing an email address");
   }
   return email;

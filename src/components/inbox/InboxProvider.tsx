@@ -1,13 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { useQuery, useMutation } from 'convex/react';
 import type { AppNotification } from '../../types';
 import { useApp } from '../../store/AppContext';
-import { buildNotificationsForRole } from '../../utils/notification-builder';
-
-// ── Seen-state key helper ────────────────────────────────────────────
-
-function stateKey(wsId: string, accountId: string): string {
-  return `notif-${wsId}-${accountId}`;
-}
+import { api } from '../../../convex/_generated/api';
+import { useBackendAuth } from '../../providers/BackendProviders';
 
 // ── Context value ────────────────────────────────────────────────────
 
@@ -18,6 +14,7 @@ interface InboxContextValue {
   openInbox: () => void;
   closeInbox: () => void;
   markRead: (id: string) => void;
+  markAllRead: () => void;
   dismiss: (id: string) => void;
   isRead: (id: string) => boolean;
 }
@@ -28,96 +25,77 @@ const InboxContext = createContext<InboxContextValue | null>(null);
 
 export function InboxProvider({ children }: { children: ReactNode }) {
   const { state } = useApp();
-
-  // Per-key sets of read and dismissed notification IDs
-  const [readMap, setReadMap] = useState<Record<string, Set<string>>>({});
-  const [dismissedMap, setDismissedMap] = useState<Record<string, Set<string>>>({});
+  const { authEnabled, isSignedIn } = useBackendAuth();
   const [showInbox, setShowInbox] = useState(false);
 
-  // Build notifications from current state
-  const allNotifications = useMemo(() => {
-    if (!state.isAuthenticated) return [];
-    return buildNotificationsForRole(
-      state.role,
-      state.userId,
-      state.tasks,
-      state.audit,
-      state.handoffs,
-      state.availability,
-      state.teams
-    );
-  }, [
-    state.isAuthenticated,
-    state.role,
-    state.userId,
-    state.tasks,
-    state.audit,
-    state.handoffs,
-    state.availability,
-    state.teams,
-  ]);
-
-  // Current key
-  const key = state.currentAccountId
-    ? stateKey(state.activeWorkspaceId, state.currentAccountId)
-    : '';
-  const readIds = key ? readMap[key] || new Set<string>() : new Set<string>();
-  const dismissedIds = key ? dismissedMap[key] || new Set<string>() : new Set<string>();
-
-  // Filter out dismissed notifications
-  const notifications = useMemo(
-    () => allNotifications.filter((n) => !dismissedIds.has(n.id)),
-    [allNotifications, dismissedIds]
+  // Only fetch notifications when user is fully authenticated AND has completed
+  // session bridging (isAuthenticated in local state). This prevents crashes when
+  // Clerk has a stale session but the user record doesn't exist in Convex yet.
+  const isFullyReady = authEnabled && isSignedIn && state.isAuthenticated;
+  const serverNotifications = useQuery(
+    api.notifications.listForUser,
+    isFullyReady ? {} : 'skip'
   );
 
+  const markReadMutation = useMutation(api.notifications.markRead);
+  const markAllReadMutation = useMutation(api.notifications.markAllRead);
+  const dismissMutation = useMutation(api.notifications.dismiss);
+
+  // Map Convex objects to AppNotification interface expected by UI
+  const notifications = useMemo(() => {
+    if (!serverNotifications) return [];
+    return serverNotifications.map((n) => ({
+      id: String(n._id),
+      title: n.title,
+      body: n.body,
+      type: n.type as AppNotification['type'],
+      timestamp: n.createdAt,
+      taskId: n.taskId ? String(n.taskId) : undefined,
+      route: n.route,
+      isRead: n.isRead,
+      isDismissed: n.isDismissed,
+    }));
+  }, [serverNotifications]);
+
   const unreadCount = useMemo(
-    () => notifications.filter((n) => !readIds.has(n.id)).length,
-    [notifications, readIds]
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications]
   );
 
   const markRead = useCallback(
     (id: string) => {
-      if (!key) return;
-      setReadMap((prev) => {
-        const existing = prev[key] || new Set<string>();
-        if (existing.has(id)) return prev;
-        const next = new Set(existing);
-        next.add(id);
-        return { ...prev, [key]: next };
-      });
+      // Optimistically update if needed, but Convex handles that mostly automatically
+      // We pass the Convex `Id` directly since `n.id` is just `String(n._id)`
+      markReadMutation({ notificationId: id as any }).catch(console.error);
     },
-    [key]
+    [markReadMutation]
   );
 
   const dismiss = useCallback(
     (id: string) => {
-      if (!key) return;
-      setDismissedMap((prev) => {
-        const existing = prev[key] || new Set<string>();
-        const next = new Set(existing);
-        next.add(id);
-        return { ...prev, [key]: next };
-      });
+      dismissMutation({ notificationId: id as any }).catch(console.error);
     },
-    [key]
+    [dismissMutation]
   );
+
+  const markAllRead = useCallback(() => {
+    markAllReadMutation().catch(console.error);
+  }, [markAllReadMutation]);
 
   const isRead = useCallback(
-    (id: string) => readIds.has(id),
-    [readIds]
+    (id: string) => {
+      const notif = notifications.find((n) => n.id === id);
+      return notif ? notif.isRead : false;
+    },
+    [notifications]
   );
 
-  const openInbox = useCallback(() => {
-    setShowInbox(true);
-  }, []);
-
-  const closeInbox = useCallback(() => {
-    setShowInbox(false);
-  }, []);
+  const openInbox = useCallback(() => setShowInbox(true), []);
+  const closeInbox = useCallback(() => setShowInbox(false), []);
 
   const value = useMemo<InboxContextValue>(
-    () => ({ notifications, unreadCount, showInbox, openInbox, closeInbox, markRead, dismiss, isRead }),
-    [notifications, unreadCount, showInbox, openInbox, closeInbox, markRead, dismiss, isRead]
+    () => ({ notifications, unreadCount, showInbox, openInbox, closeInbox, markRead, markAllRead, dismiss, isRead }),
+    [notifications, unreadCount, showInbox, openInbox, closeInbox, markRead, markAllRead, dismiss, isRead]
   );
 
   return <InboxContext.Provider value={value}>{children}</InboxContext.Provider>;

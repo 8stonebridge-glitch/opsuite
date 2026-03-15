@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSignIn } from '../../src/lib/clerk';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
-import { authClient, emailVerificationCallbackUrl } from '../../src/lib/auth-client';
 import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { getAuthErrorMessage, hashPassword, validateEmail } from '../../src/utils/auth';
@@ -17,108 +17,34 @@ export default function SignInScreen() {
   const params = useLocalSearchParams<{ verified?: string; checkEmail?: string }>();
   const backendAuth = useBackendAuth();
   const bootstrapOwnerSession = useOwnerSessionBootstrap();
+  const { signIn, setActive, isLoaded: clerkLoaded } = useSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isClearingSession, setIsClearingSession] = useState(false);
-  const [isResendingVerification, setIsResendingVerification] = useState(false);
-  const [isRestoringWorkspace, setIsRestoringWorkspace] = useState(false);
   const [isNavigatingAway, setIsNavigatingAway] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
     setEmail('');
     setPassword('');
     setError('');
-    setNeedsEmailVerification(false);
   }, []);
+
+  // If user is already authenticated (e.g. came from sign-up verification),
+  // redirect to the index page which will route them to the correct dashboard.
+  useEffect(() => {
+    if (state.isAuthenticated && !state.isDemo) {
+      router.replace('/');
+    }
+  }, [state.isAuthenticated, state.isDemo, router]);
 
   const normalizedEmail = email.trim().toLowerCase();
   const isDemoAccount = normalizedEmail === 'owner@opsuite.demo';
-  const isConvexAuthPendingMessage = (message: string) =>
-    message.includes('Convex is still waiting for the auth token');
-  const isEmailVerificationMessage = (message: string) => {
-    const normalizedMessage = message.toLowerCase();
-    return normalizedMessage.includes('email not verified') || normalizedMessage.includes('verify your email');
-  };
-
-  const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  const finishWorkspaceBootstrap = async ({
-    authUserId,
-    name,
-    email,
-  }: {
-    authUserId: string;
-    name: string;
-    email: string;
-  }) => {
-    const timeoutMs = 12000;
-    const pollMs = 400;
-    const startedAt = Date.now();
-    let lastPendingMessage = '';
-
-    while (Date.now() - startedAt < timeoutMs) {
-      if (state.isAuthenticated) {
-        return;
-      }
-
-      try {
-        await bootstrapOwnerSession({
-          authUserId,
-          name,
-          email,
-        });
-        await pause(0);
-        return;
-      } catch (bootstrapError) {
-        const bootstrapMessage = getAuthErrorMessage(bootstrapError, '');
-        if (!isConvexAuthPendingMessage(bootstrapMessage)) {
-          throw bootstrapError;
-        }
-        lastPendingMessage = bootstrapMessage;
-      }
-
-      await pause(pollMs);
-    }
-
-    throw new Error(
-      lastPendingMessage ||
-        'Your session is active, but your workspace is taking longer than expected to reconnect. Please try again.'
-    );
-  };
-
-  const handleResendVerification = async () => {
-    if (!validateEmail(email)) {
-      setError('Enter the email address you signed up with first.');
-      return;
-    }
-
-    setError('');
-    setNeedsEmailVerification(true);
-    setIsResendingVerification(true);
-
-    try {
-      const result = await authClient.sendVerificationEmail({
-        email: normalizedEmail,
-        callbackURL: emailVerificationCallbackUrl,
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message || 'We could not resend the verification email.');
-      }
-    } catch (err) {
-      setError(getAuthErrorMessage(err, 'We could not resend the verification email.'));
-    } finally {
-      setIsResendingVerification(false);
-    }
-  };
 
   const handleSignIn = async () => {
     setError('');
-    setNeedsEmailVerification(false);
 
     if (!validateEmail(email)) {
       setError('Enter a valid work email address.');
@@ -145,93 +71,34 @@ export default function SignInScreen() {
       return;
     }
 
+    if (!clerkLoaded || !signIn) {
+      setError('Auth is still loading. Please wait a moment.');
+      return;
+    }
+
     setIsSubmitting(true);
-    setIsRestoringWorkspace(false);
 
     try {
-      if (backendAuth.isSignedIn) {
-        await authClient.signOut();
-        dispatch({ type: 'SIGN_OUT' });
-      }
-
-      const result = await authClient.signIn.email({
-        email: normalizedEmail,
+      const result = await signIn.create({
+        identifier: normalizedEmail,
         password,
-        rememberMe: true,
       });
 
-      if (result.error) {
-        throw new Error(result.error.message || 'We could not sign you in.');
+      if (result.status === 'complete' && result.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
+        setIsNavigatingAway(true);
+      } else {
+        setError('Sign-in incomplete. Please try again.');
       }
-
-      setIsRestoringWorkspace(true);
-      await finishWorkspaceBootstrap({
-        authUserId: result.data?.user?.id || normalizedEmail,
-        name: result.data?.user?.name || 'Owner',
-        email: normalizedEmail,
-      });
-      // Auth layout's <Redirect href="/" /> fires automatically when
-      // state.isAuthenticated becomes true — no explicit navigate needed.
-      setIsNavigatingAway(true);
-    } catch (err) {
-      const message = getAuthErrorMessage(err, 'We could not sign you in.');
-      if (isEmailVerificationMessage(message)) {
-        setNeedsEmailVerification(true);
-        setError('Your email still needs confirmation. Check your inbox, then come back and sign in.');
-        return;
+    } catch (err: any) {
+      const clerkErrors = err?.errors;
+      if (Array.isArray(clerkErrors) && clerkErrors.length > 0) {
+        setError(clerkErrors[0].longMessage || clerkErrors[0].message || 'We could not sign you in.');
+      } else {
+        setError(getAuthErrorMessage(err, 'We could not sign you in.'));
       }
-      setError(message);
     } finally {
-      setIsRestoringWorkspace(false);
       setIsSubmitting(false);
-    }
-  };
-
-  const handleUseCurrentSession = async () => {
-    setError('');
-    setNeedsEmailVerification(false);
-
-    if (isDemoAccount) {
-      router.replace('/');
-      return;
-    }
-
-    if (!backendAuth.userId || !backendAuth.email) {
-      setError('The current session is still loading. Please wait a moment and try again.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setIsRestoringWorkspace(false);
-
-    try {
-      setIsRestoringWorkspace(true);
-      await finishWorkspaceBootstrap({
-        authUserId: backendAuth.userId,
-        name: backendAuth.fullName || 'Owner',
-        email: backendAuth.email,
-      });
-      setIsNavigatingAway(true);
-    } catch (err) {
-      setError(getAuthErrorMessage(err, 'We could not restore the current session yet.'));
-    } finally {
-      setIsRestoringWorkspace(false);
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleClearCurrentSession = async () => {
-    setError('');
-    setNeedsEmailVerification(false);
-    setIsClearingSession(true);
-
-    try {
-      await authClient.signOut();
-    } catch (err) {
-      setError(getAuthErrorMessage(err, 'We could not clear the current session just yet.'));
-    } finally {
-      dispatch({ type: 'SIGN_OUT' });
-      setIsClearingSession(false);
     }
   };
 
@@ -290,8 +157,6 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
-{null}
-
           <View className="gap-4 mb-6">
             <Input
               label="Work Email"
@@ -300,24 +165,28 @@ export default function SignInScreen() {
               onChangeText={(text) => {
                 setEmail(text);
                 setError('');
-                setNeedsEmailVerification(false);
               }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="off"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
             <Input
+              ref={passwordRef}
               label="Password"
               placeholder="Enter password"
               value={password}
               onChangeText={(text) => {
                 setPassword(text);
                 setError('');
-                setNeedsEmailVerification(false);
               }}
               secureTextEntry
               autoComplete="off"
+              returnKeyType="go"
+              onSubmitEditing={handleSignIn}
             />
           </View>
 
@@ -335,16 +204,6 @@ export default function SignInScreen() {
               <Ionicons name="alert-circle" size={16} color="#dc2626" />
               <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
             </View>
-          ) : null}
-
-{!backendAuth.isSignedIn && needsEmailVerification ? (
-            <Button
-              title={isResendingVerification ? 'Resending email...' : 'Resend verification email'}
-              onPress={handleResendVerification}
-              disabled={isResendingVerification}
-              variant="outline"
-              className="w-full mb-4"
-            />
           ) : null}
 
           <Button
