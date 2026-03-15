@@ -192,6 +192,52 @@ export const removeMember = mutation({
   },
 });
 
+/** Reassign a member to different teams/sites — owner only */
+export const reassignMember = mutation({
+  args: {
+    userId: v.id("users"),
+    teamIds: v.array(v.id("teams")),
+    siteIds: v.array(v.id("sites")),
+  },
+  handler: async (ctx, args) => {
+    const { organizationId } = await requireOwnerMembership(ctx);
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_organization_user", (q) =>
+        q.eq("organizationId", organizationId).eq("userId", args.userId),
+      )
+      .unique();
+
+    if (!membership || membership.status !== "active") {
+      throw new Error("User is not a member of this organization");
+    }
+
+    for (const teamId of args.teamIds) {
+      const team = await ctx.db.get(teamId);
+      if (!team || team.organizationId !== organizationId) {
+        throw new Error("One of the selected teams does not belong to this organization");
+      }
+    }
+
+    for (const siteId of args.siteIds) {
+      const site = await ctx.db.get(siteId);
+      if (!site || site.organizationId !== organizationId) {
+        throw new Error("One of the selected sites does not belong to this organization");
+      }
+    }
+
+    const now = new Date().toISOString();
+    await ctx.db.patch(membership._id, {
+      teamIds: args.teamIds,
+      siteIds: args.siteIds,
+      updatedAt: now,
+    });
+
+    return await ctx.db.get(membership._id);
+  },
+});
+
 /** Update an existing member's profile (name, email) — owner only */
 export const updateMember = mutation({
   args: {

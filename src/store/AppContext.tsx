@@ -511,6 +511,7 @@ export type AppAction =
   | { type: 'ADD_TEAM'; team: Team }
   | { type: 'ADD_MEMBER_TO_TEAM'; teamId: string; member: Employee }
   | { type: 'ADD_STANDALONE_EMPLOYEE'; employee: Employee }
+  | { type: 'REASSIGN_EMPLOYEE'; employeeId: string; newTeamId?: string; siteId?: string; siteName?: string }
   | { type: 'FINISH_ONBOARDING' }
   | { type: 'SWITCH_USER'; role: Role; userId: string | null }
   | { type: 'ADD_TASK'; task: Task }
@@ -567,6 +568,7 @@ type InternalOnlyAction =
   | { type: 'SYNC_EXTERNAL_OWNER' }
   | { type: 'SYNC_EXTERNAL_ACTIVE_STRUCTURE' }
   | { type: 'ADD_STANDALONE_EMPLOYEE' }
+  | { type: 'REASSIGN_EMPLOYEE' }
   | { type: 'SIGN_UP' }
   | { type: 'SIGN_IN' }
   | { type: 'SIGN_OUT' };
@@ -973,6 +975,53 @@ function internalReducer(internal: InternalState, action: AppAction): InternalSt
         ...ws.data,
         standaloneEmployees: [...existing, action.employee],
       },
+    };
+    const nextWorkspaces = [...internal.workspaces];
+    nextWorkspaces[wsIndex] = updatedWs;
+    return { ...internal, workspaces: nextWorkspaces };
+  }
+
+  if (action.type === 'REASSIGN_EMPLOYEE') {
+    const wsIndex = internal.workspaces.findIndex((w) => w.id === internal.activeWorkspaceId);
+    if (wsIndex < 0) return internal;
+    const ws = internal.workspaces[wsIndex];
+
+    // Find the employee across teams and standalone list
+    const allMembers = [
+      ...ws.data.teams.flatMap((t) => t.members),
+      ...(ws.data.standaloneEmployees || []),
+    ];
+    const emp = allMembers.find((m) => m.id === action.employeeId);
+    if (!emp) return internal;
+
+    const updatedEmp = {
+      ...emp,
+      teamId: action.newTeamId || undefined,
+      teamName: action.newTeamId ? ws.data.teams.find((t) => t.id === action.newTeamId)?.name : undefined,
+      siteId: action.siteId || undefined,
+      siteName: action.siteName || undefined,
+    };
+
+    const teamsWithout = ws.data.teams.map((t) => ({
+      ...t,
+      members: t.members.filter((m) => m.id !== action.employeeId),
+    }));
+    const standaloneWithout = (ws.data.standaloneEmployees || []).filter((e) => e.id !== action.employeeId);
+
+    const finalTeams = action.newTeamId
+      ? teamsWithout.map((t) =>
+          t.id === action.newTeamId
+            ? { ...t, members: [...t.members, updatedEmp].sort((a, b) => a.name.localeCompare(b.name)) }
+            : t,
+        )
+      : teamsWithout;
+    const finalStandalone = !action.newTeamId
+      ? [...standaloneWithout, updatedEmp].sort((a, b) => a.name.localeCompare(b.name))
+      : standaloneWithout;
+
+    const updatedWs: Workspace = {
+      ...ws,
+      data: { ...ws.data, teams: finalTeams, standaloneEmployees: finalStandalone },
     };
     const nextWorkspaces = [...internal.workspaces];
     nextWorkspaces[wsIndex] = updatedWs;

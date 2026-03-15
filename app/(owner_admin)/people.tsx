@@ -76,10 +76,13 @@ export default function OwnerPeopleScreen() {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editTeamId, setEditTeamId] = useState('');
+  const [editSiteId, setEditSiteId] = useState('');
   const [editError, setEditError] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const updateMember = useMutation(api.memberships.updateMember);
   const removeMember = useMutation(api.memberships.removeMember);
+  const reassignMember = useMutation(api.memberships.reassignMember);
 
   const leadOptions = useMemo<LeadOption[]>(() => {
     const existingLeadIds = new Set(teams.map((team) => team.lead.id));
@@ -421,6 +424,24 @@ export default function OwnerPeopleScreen() {
         }
       }
 
+      // Reassign team/site if changed
+      if (!state.isDemo) {
+        await reassignMember({
+          userId: editMember.id as never,
+          teamIds: editTeamId ? [editTeamId as never] : [],
+          siteIds: editSiteId ? [editSiteId as never] : [],
+        });
+      } else {
+        const selectedSite = state.onboarding.sites.find((s) => s.id === editSiteId);
+        dispatch({
+          type: 'REASSIGN_EMPLOYEE',
+          employeeId: editMember.id,
+          newTeamId: editTeamId || undefined,
+          siteId: editSiteId || undefined,
+          siteName: selectedSite?.name,
+        });
+      }
+
       setEditMember(null);
     } catch (error) {
       setEditError(error instanceof Error ? error.message : 'Failed to save changes.');
@@ -506,13 +527,15 @@ export default function OwnerPeopleScreen() {
                     topAction={perf?.actions[0]?.label}
                     siteName={emp.siteName}
                     availabilityBadge={availBadge}
-                    onPress={!state.isDemo ? () => {
+                    onPress={() => {
                       setEditMember({ id: emp.id, name: emp.name, email: '' });
                       setEditName(emp.name);
                       setEditEmail('');
                       setEditPassword('');
+                      setEditTeamId(emp.teamId || '');
+                      setEditSiteId(emp.siteId || '');
                       setEditError('');
-                    } : undefined}
+                    }}
                   />
                 );
               })}
@@ -984,6 +1007,32 @@ export default function OwnerPeopleScreen() {
             secureTextEntry
             placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
           />
+
+          {/* Team reassignment */}
+          {teamOptions.length > 0 && (
+            <View className="mt-4">
+              <Select
+                label="Team"
+                placeholder="No team"
+                options={[{ label: 'No team', value: '' }, ...teamOptions]}
+                value={editTeamId}
+                onChange={(value) => { setEditTeamId(value); setEditError(''); }}
+              />
+            </View>
+          )}
+
+          {/* Site reassignment */}
+          {state.onboarding.sites.length > 0 && (
+            <View className="mt-4">
+              <Select
+                label="Site"
+                placeholder="No site"
+                options={[{ label: 'No site', value: '' }, ...state.onboarding.sites.map((s) => ({ label: s.name, value: s.id }))]}
+                value={editSiteId}
+                onChange={(value) => { setEditSiteId(value); setEditError(''); }}
+              />
+            </View>
+          )}
 
           <Text className="text-sm text-gray-400 dark:text-gray-500 leading-6 mt-4">
             Only fill in the fields you want to change.
