@@ -213,40 +213,8 @@ export default function SubAdminOverviewScreen() {
 
           {/* At-Risk Employees */}
           <AtRiskSection employees={atRiskPerfs} limit={5} />
-
-          {/* Recent Activity */}
-          {recentAudit.length > 0 && (
-            <View>
-              <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
-                Recent Activity
-              </Text>
-              <Card className="gap-0">
-                {recentAudit.map((entry, i) => (
-                  <View
-                    key={entry.id}
-                    className={`flex-row gap-3 py-3 ${i < recentAudit.length - 1 ? 'border-b border-gray-50 dark:border-gray-800' : ''}`}
-                  >
-                    <View className="w-1.5 rounded-full mt-1" style={{ height: 14, backgroundColor: getAuditColor(entry.updateType) }} />
-                    <View className="flex-1">
-                      <Text className="text-xs text-gray-700 dark:text-gray-300" numberOfLines={2}>{entry.message}</Text>
-                      <Text className="text-[10px] text-gray-300 dark:text-gray-600 mt-0.5">{entry.dateTag}</Text>
-                    </View>
-                  </View>
-                ))}
-              </Card>
-            </View>
-          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function getAuditColor(type: string): string {
-  if (type === 'Rework' || type === 'Escalation') return '#dc2626';
-  if (type === 'Status') return '#3b82f6';
-  if (type === 'Assignment' || type === 'Delegated') return '#059669';
-  if (type === 'Approval' || type === 'Verification') return '#7c3aed';
-  if (type === 'No Change') return '#d97706';
-  return '#9ca3af';
 }
