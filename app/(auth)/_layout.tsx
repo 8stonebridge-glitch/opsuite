@@ -15,8 +15,17 @@ export default function AuthLayout() {
     );
   }
 
-  // Local state says authenticated but backend session hasn't confirmed yet —
-  // hold on the spinner to avoid a brief flash of the sign-in form.
+  // Guard: backend says signed-in but local state hasn't synced yet —
+  // hold the spinner so the sign-in form never flashes.
+  if (backendAuth.authEnabled && backendAuth.isSignedIn && !state.isAuthenticated) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white dark:bg-gray-950">
+        <ActivityIndicator color="#059669" size="large" />
+      </View>
+    );
+  }
+
+  // Guard: local state says authenticated but backend session hasn't confirmed yet
   if (state.isAuthenticated && backendAuth.authEnabled && !backendAuth.isSignedIn) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-gray-950">
