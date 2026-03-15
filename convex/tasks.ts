@@ -225,35 +225,46 @@ export const listForCurrentScope = query({
   handler: async (ctx) => {
     const { organizationId, membership } = await requireActiveOrganizationMembership(ctx);
 
-    const tasks = await ctx.db
-      .query("tasks")
-      .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
-      .collect();
+    let scopedTasks: Doc<"tasks">[] = [];
 
-    const scopedTasks = tasks.filter((task) => canViewTask(task, membership));
+    // Optimize task fetching based on role using indexes rather than Memory filtering
+    if (membership.role === "owner_admin") {
+      scopedTasks = await ctx.db
+        .query("tasks")
+        .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
+        .collect();
+    } else if (membership.role === "subadmin") {
+      const allTasks = await ctx.db
+        .query("tasks")
+        .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
+        .collect();
+      // Subadmins see tasks where they are accountable lead OR assigned
+      scopedTasks = allTasks.filter(
+        (t) => t.accountableLeadMembershipId === membership._id || t.assignedToMembershipId === membership._id
+      );
+    } else {
+      // Employees only see tasks assigned to them
+      scopedTasks = await ctx.db
+        .query("tasks")
+        .withIndex("by_organization_assignee", (q) =>
+          q.eq("organizationId", organizationId).eq("assignedToMembershipId", membership._id)
+        )
+        .collect();
+    }
+
     const hydratedScopedTasks = await hydrateTasks(ctx, scopedTasks);
+
+    // Employee-created tasks
     const hydratedAssignedTasks = await hydrateTasks(
       ctx,
       scopedTasks.filter((task) => task.createdByMembershipId === membership._id),
     );
-    const taskIds = scopedTasks.map((task) => task._id);
-    const allAudits = await Promise.all(
-      taskIds.map((taskId) =>
-        ctx.db
-          .query("taskAudits")
-          .withIndex("by_task_created_at", (q) => q.eq("taskId", taskId))
-          .collect(),
-      ),
-    );
-    const hydratedAuditEntries = await hydrateAudits(
-      ctx,
-      allAudits.flat().sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    );
 
+    // FIX: Remove N+1 audit query from the list view. Audits should only load on detail views.
     return {
       scopedTasks: hydratedScopedTasks,
       myAssignedTasks: hydratedAssignedTasks,
-      auditEntries: hydratedAuditEntries,
+      auditEntries: [],
     };
   },
 });
@@ -414,8 +425,8 @@ export const create = mutation({
     const now = new Date().toISOString();
     const delegatedAt =
       membership.role === "subadmin" &&
-      assignedMembership &&
-      assignedMembership._id !== membership._id
+        assignedMembership &&
+        assignedMembership._id !== membership._id
         ? now
         : undefined;
 
