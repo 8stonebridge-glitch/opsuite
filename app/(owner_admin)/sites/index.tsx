@@ -124,7 +124,7 @@ export default function SitesScreen() {
         <View className="bg-white dark:bg-gray-950 rounded-t-3xl px-5 pt-5 pb-10">
           <View className="flex-row items-center justify-between mb-5">
             <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Add Site</Text>
-            <Pressable onPress={() => setShowCreateSite(false)}>
+            <Pressable onPress={() => setShowCreateSite(false)} hitSlop={12}>
               <Ionicons name="close" size={22} color="#6b7280" />
             </Pressable>
           </View>

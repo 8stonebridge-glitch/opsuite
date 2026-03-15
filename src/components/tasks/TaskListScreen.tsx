@@ -391,7 +391,7 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
               )
             }
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: 140 }}
             stickySectionHeadersEnabled={false}
           />
         ) : (
@@ -436,7 +436,7 @@ export function TaskListScreen({ basePath }: TaskListScreenProps) {
             }
             stickyHeaderIndices={[0]}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: 140 }}
           />
         )}
       </View>

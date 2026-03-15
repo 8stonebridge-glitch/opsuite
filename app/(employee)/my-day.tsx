@@ -193,8 +193,6 @@ export default function EmployeeMyDayScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
       <RoleSwitcher />
-      <View className="bg-red-100 p-4 m-4 rounded"><Text>DEBUG isUnavailable: {String(isUnavailable)}</Text><Text>UserId: {state.userId}</Text><Text>Records: {JSON.stringify(state.availability.filter(r => r.memberId === state.userId))}</Text></View>
-
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 100 }}

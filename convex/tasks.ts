@@ -25,16 +25,16 @@ function getAllowedNextStatuses(
   role: Doc<"memberships">["role"],
   isAssignee: boolean,
 ): Doc<"tasks">["status"][] {
-  // Rule 3: Only the assigned person can start or complete a task.
-  // Managers cannot complete on behalf of others.
+  // Assignee can progress their own tasks
   if (isAssignee) {
     if (current === "Open") return ["In Progress"];
     if (current === "In Progress") return ["Completed"];
   }
 
-  // Admin/subadmin can approve and reopen via updateStatus.
-  // Verify and rework use dedicated mutations (verify, requestRework).
+  // Admin/subadmin can manage the full task lifecycle
   if (role === "subadmin" || role === "owner_admin") {
+    if (current === "Open") return ["In Progress"];
+    if (current === "In Progress") return ["Completed"];
     if (current === "Pending Approval") return ["Open"];
     if (current === "Verified") return ["Open"];
   }
