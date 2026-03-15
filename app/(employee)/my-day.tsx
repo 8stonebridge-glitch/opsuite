@@ -206,9 +206,8 @@ export default function EmployeeMyDayScreen() {
             </Card>
           ) : null}
 
-          {/* Handoff Section */}
-          {isUnavailable ? (
-            // Protected unavailable — no handoff required
+          {/* Unavailable banner — informational, does not block handoff */}
+          {isUnavailable && !handoffDone && (
             <Card className="flex-row items-center gap-4">
               <View
                 className="w-11 h-11 rounded-full items-center justify-center"
@@ -219,11 +218,14 @@ export default function EmployeeMyDayScreen() {
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">You are unavailable today</Text>
                 <Text className="text-xs text-gray-400 dark:text-gray-500">
-                  No handoff required while you're away
+                  You can still review your tasks below if needed
                 </Text>
               </View>
             </Card>
-          ) : handoffDone ? (
+          )}
+
+          {/* Handoff Section */}
+          {handoffDone ? (
             // Already completed today
             <Card className="flex-row items-center gap-4">
               <View
