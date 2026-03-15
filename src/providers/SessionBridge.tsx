@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useConvex, useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useConvex, useConvexAuth, useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useApp } from '../store/AppContext';
 import { useBackendAuth } from './BackendProviders';
@@ -17,6 +17,7 @@ export function SessionBridge() {
   const convex = useConvex();
   const { isLoading: convexAuthLoading, isAuthenticated: convexAuthenticated } = useConvexAuth();
   const syncFromAuth = useMutation(api.users.syncFromAuth);
+  const syncFromAuthAction = useAction(api.users.syncFromAuthAction);
 
   const viewer = useQuery(
     api.users.viewer,
@@ -90,7 +91,11 @@ export function SessionBridge() {
       void waitForConvexIdentity(convex)
         .then(() => syncFromAuth({}))
         .catch(() => {
-          lastSyncedUserId.current = null;
+          // Mutation failed (likely JWT missing email claim) — fall back to
+          // the action which fetches email from Clerk Backend API.
+          return syncFromAuthAction({}).catch(() => {
+            lastSyncedUserId.current = null;
+          });
         });
     }
   }, [
@@ -104,6 +109,7 @@ export function SessionBridge() {
     state.isAuthenticated,
     state.isDemo,
     syncFromAuth,
+    syncFromAuthAction,
     userId,
     viewer,
   ]);

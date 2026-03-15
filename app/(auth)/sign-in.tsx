@@ -3,7 +3,7 @@ import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, Acti
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSignIn } from '../../src/lib/clerk';
+import { useSignIn, useAuth } from '../../src/lib/clerk';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { Input } from '../../src/components/ui/Input';
@@ -18,6 +18,7 @@ export default function SignInScreen() {
   const backendAuth = useBackendAuth();
   const bootstrapOwnerSession = useOwnerSessionBootstrap();
   const { signIn, setActive, isLoaded: clerkLoaded } = useSignIn();
+  const { signOut } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -79,6 +80,13 @@ export default function SignInScreen() {
     setIsSubmitting(true);
 
     try {
+      // Clear any hanging Clerk session to prevent "already signed in" errors
+      try {
+        await signOut();
+      } catch (e) {
+        // Ignore sign-out errors since we're just ensuring clean state
+      }
+
       const result = await signIn.create({
         identifier: normalizedEmail,
         password,
@@ -86,7 +94,10 @@ export default function SignInScreen() {
 
       if (result.status === 'complete' && result.createdSessionId) {
         await setActive({ session: result.createdSessionId });
-        setIsNavigatingAway(true);
+        // Navigate immediately — index page handles the loading state
+        // while SessionBridge syncs in the background.
+        router.replace('/');
+        return;
       } else {
         setError('Sign-in incomplete. Please try again.');
       }
