@@ -24,7 +24,7 @@ import { Select, type SelectOption } from '../ui/Select';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { uid } from '../../utils/id';
-import { getToday, getNowISO } from '../../utils/date';
+import { getToday, getNowISO, formatDue } from '../../utils/date';
 import type { Task, Priority } from '../../types';
 
 /** Convert a plural sitesLabel to singular properly (e.g. "Properties" -> "Property") */
@@ -367,26 +367,39 @@ export function NewTaskScreen() {
               Due date
             </Text>
             {Platform.OS === 'web' ? (
-              <input
-                type="date"
-                value={dueDate}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => handleDateChange(e.target.value)}
-                style={{
-                  backgroundColor: isDark ? '#111827' : '#f9fafb',
-                  borderRadius: 16,
-                  paddingLeft: 16,
-                  paddingRight: 16,
-                  paddingTop: 14,
-                  paddingBottom: 14,
-                  fontSize: 16,
-                  color: dueDate ? (isDark ? '#f3f4f6' : '#111827') : (isDark ? '#4b5563' : '#d1d5db'),
-                  border: 'none',
-                  outline: 'none',
-                  width: '100%',
-                  fontFamily: 'inherit',
-                }}
-              />
+              <View style={{ position: 'relative' }}>
+                <Pressable
+                  className="bg-gray-50 dark:bg-gray-800 rounded-2xl px-4 py-3.5 flex-row items-center justify-between"
+                  onPress={() => {
+                    const inp = document.querySelector('input[data-date-picker]') as HTMLInputElement | null;
+                    inp?.showPicker?.();
+                    inp?.click();
+                  }}
+                >
+                  <Text
+                    className={`text-base ${dueDate ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}`}
+                  >
+                    {dueDate ? formatDue(dueDate) || dueDate : 'Select date'}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color={isDark ? '#6b7280' : '#9ca3af'} />
+                </Pressable>
+                <input
+                  data-date-picker=""
+                  type="date"
+                  value={dueDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    opacity: 0,
+                    cursor: 'pointer',
+                  }}
+                />
+              </View>
             ) : (
               <>
                 <Pressable
@@ -396,7 +409,7 @@ export function NewTaskScreen() {
                   <Text
                     className={`text-base ${dueDate ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}`}
                   >
-                    {dueDate || 'Tap to select date'}
+                    {dueDate ? formatDue(dueDate) || dueDate : 'Tap to select date'}
                   </Text>
                   <Ionicons name="calendar-outline" size={20} color={isDark ? '#6b7280' : '#9ca3af'} />
                 </Pressable>
