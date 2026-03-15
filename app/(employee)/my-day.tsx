@@ -72,10 +72,10 @@ export default function EmployeeMyDayScreen() {
 
   const handoff = isBackendMode
     ? {
-        total: backendHandoff?.total || 0,
-        engaged: backendHandoff?.engaged || 0,
-        remaining: backendHandoff?.remainingTasks || [],
-      }
+      total: backendHandoff?.total || 0,
+      engaged: backendHandoff?.engaged || 0,
+      remaining: backendHandoff?.remainingTasks || [],
+    }
     : localHandoff;
   const handoffDone = isBackendMode ? Boolean(backendHandoff?.handoffDone) : localHandoffDone;
 
@@ -179,16 +179,16 @@ export default function EmployeeMyDayScreen() {
   const engagedTaskIds = isBackendMode ? backendHandoff?.engagedTaskIds || [] : [];
   const engagedTasks = isBackendMode
     ? backendTasks.filter(
-        (task) =>
-          engagedTaskIds.includes(task.id) &&
-          (task.status === 'Open' || task.status === 'In Progress')
-      )
+      (task) =>
+        engagedTaskIds.includes(task.id) &&
+        (task.status === 'Open' || task.status === 'In Progress')
+    )
     : state.tasks.filter(
-        (task) =>
-          task.assigneeId === state.userId &&
-          (task.status === 'Open' || task.status === 'In Progress') &&
-          !handoff.remaining.some((remainingTask) => remainingTask.id === task.id)
-      );
+      (task) =>
+        task.assigneeId === state.userId &&
+        (task.status === 'Open' || task.status === 'In Progress') &&
+        !handoff.remaining.some((remainingTask) => remainingTask.id === task.id)
+    );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-950" edges={['top']}>
@@ -204,156 +204,158 @@ export default function EmployeeMyDayScreen() {
               <Ionicons name="sync" size={18} color={color} />
               <Text className="text-sm text-gray-600 dark:text-gray-400">Loading your handoff...</Text>
             </Card>
-          ) : null}
-
-          {/* Unavailable banner — informational, does not block handoff */}
-          {isUnavailable && !handoffDone && (
-            <Card className="flex-row items-center gap-4">
-              <View
-                className="w-11 h-11 rounded-full items-center justify-center"
-                style={{ backgroundColor: '#6366f115' }}
-              >
-                <Ionicons name="moon" size={24} color="#6366f1" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">You are unavailable today</Text>
-                <Text className="text-xs text-gray-400 dark:text-gray-500">
-                  You can still review your tasks below if needed
-                </Text>
-              </View>
-            </Card>
-          )}
-
-          {/* Handoff Section */}
-          {handoffDone ? (
-            // Already completed today
-            <Card className="flex-row items-center gap-4">
-              <View
-                className="w-11 h-11 rounded-full items-center justify-center"
-                style={{ backgroundColor: '#05966915' }}
-              >
-                <Ionicons name="checkmark-circle" size={24} color="#059669" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">Handoff Complete</Text>
-                <Text className="text-xs text-gray-400 dark:text-gray-500">
-                  All tasks reviewed for today
-                </Text>
-              </View>
-            </Card>
-          ) : handoff.total === 0 ? (
-            // No active tasks — quick handoff
-            <Pressable onPress={handleNoTasksHandoff}>
-              <Card className="flex-row items-center gap-4">
-                <View
-                  className="w-11 h-11 rounded-full items-center justify-center"
-                  style={{ backgroundColor: color + '15' }}
-                >
-                  <Ionicons name="sunny" size={24} color={color} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Good morning, {name.split(' ')[0]}
-                  </Text>
-                  <Text className="text-xs text-gray-400 dark:text-gray-500">No active tasks · Tap to complete handoff</Text>
-                </View>
-                <View
-                  className="px-4 py-2 rounded-full"
-                  style={{ backgroundColor: color }}
-                >
-                  <Text className="text-xs font-semibold text-white">Done</Text>
-                </View>
-              </Card>
-            </Pressable>
           ) : (
-            // Active tasks — gated handoff
-            <Card>
-              <View className="flex-row items-center gap-2 mb-3">
-                <Ionicons name="hand-left" size={16} color={color} />
-                <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  Daily Handoff
-                </Text>
-                <View className="flex-1" />
-                <Text className="text-xs font-semibold" style={{ color }}>
-                  {handoff.engaged}/{handoff.total}
-                </Text>
-              </View>
-
-              {/* Progress bar */}
-              <View className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mb-4">
-                <View
-                  className="h-2 rounded-full"
-                  style={{
-                    width: `${handoff.total > 0 ? (handoff.engaged / handoff.total) * 100 : 0}%`,
-                    backgroundColor: allEngaged ? '#059669' : color,
-                  }}
-                />
-              </View>
-
-              {/* Task list with quick actions */}
-              {handoff.remaining.map((task) => (
-                <View
-                  key={task.id}
-                  className="flex-row items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800"
-                >
-                  <View className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                  <View className="flex-1">
-                    <Text className="text-sm text-gray-900 dark:text-gray-100" numberOfLines={1}>
-                      {task.title}
-                    </Text>
-                    <Text className="text-[10px] text-gray-400 dark:text-gray-500">{task.site}</Text>
+            <>
+              {/* Unavailable banner — informational, does not block handoff */}
+              {isUnavailable && !handoffDone && (
+                <Card className="flex-row items-center gap-4">
+                  <View
+                    className="w-11 h-11 rounded-full items-center justify-center"
+                    style={{ backgroundColor: '#6366f115' }}
+                  >
+                    <Ionicons name="moon" size={24} color="#6366f1" />
                   </View>
-                  <Pressable
-                    onPress={() => goToTask(task.id)}
-                    className="px-2.5 py-1.5 bg-blue-50 rounded-lg"
-                  >
-                    <Text className="text-[10px] font-semibold text-blue-600">Update</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => void handleNoChange(task.id)}
-                    className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg"
-                  >
-                    <Text className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                      {isSubmittingNoChangeId === task.id ? 'Saving...' : 'No change'}
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">You are unavailable today</Text>
+                    <Text className="text-xs text-gray-400 dark:text-gray-500">
+                      You can still review your tasks below if needed
                     </Text>
-                  </Pressable>
-                </View>
-              ))}
+                  </View>
+                </Card>
+              )}
 
-              {/* Engaged tasks */}
-              {engagedTasks.length > 0 &&
-                engagedTasks.map((task) => (
+              {/* Handoff Section */}
+              {handoffDone ? (
+                // Already completed today
+                <Card className="flex-row items-center gap-4">
+                  <View
+                    className="w-11 h-11 rounded-full items-center justify-center"
+                    style={{ backgroundColor: '#05966915' }}
+                  >
+                    <Ionicons name="checkmark-circle" size={24} color="#059669" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">Handoff Complete</Text>
+                    <Text className="text-xs text-gray-400 dark:text-gray-500">
+                      All tasks reviewed for today
+                    </Text>
+                  </View>
+                </Card>
+              ) : handoff.total === 0 ? (
+                // No active tasks — quick handoff
+                <Pressable onPress={handleNoTasksHandoff}>
+                  <Card className="flex-row items-center gap-4">
+                    <View
+                      className="w-11 h-11 rounded-full items-center justify-center"
+                      style={{ backgroundColor: color + '15' }}
+                    >
+                      <Ionicons name="sunny" size={24} color={color} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        Good morning, {name.split(' ')[0]}
+                      </Text>
+                      <Text className="text-xs text-gray-400 dark:text-gray-500">No active tasks · Tap to complete handoff</Text>
+                    </View>
+                    <View
+                      className="px-4 py-2 rounded-full"
+                      style={{ backgroundColor: color }}
+                    >
+                      <Text className="text-xs font-semibold text-white">Done</Text>
+                    </View>
+                  </Card>
+                </Pressable>
+              ) : (
+                // Active tasks — gated handoff
+                <Card>
+                  <View className="flex-row items-center gap-2 mb-3">
+                    <Ionicons name="hand-left" size={16} color={color} />
+                    <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                      Daily Handoff
+                    </Text>
+                    <View className="flex-1" />
+                    <Text className="text-xs font-semibold" style={{ color }}>
+                      {handoff.engaged}/{handoff.total}
+                    </Text>
+                  </View>
+
+                  {/* Progress bar */}
+                  <View className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mb-4">
+                    <View
+                      className="h-2 rounded-full"
+                      style={{
+                        width: `${handoff.total > 0 ? (handoff.engaged / handoff.total) * 100 : 0}%`,
+                        backgroundColor: allEngaged ? '#059669' : color,
+                      }}
+                    />
+                  </View>
+
+                  {/* Task list with quick actions */}
+                  {handoff.remaining.map((task) => (
                     <View
                       key={task.id}
                       className="flex-row items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800"
                     >
-                      <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                      <View className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
                       <View className="flex-1">
-                        <Text className="text-sm text-gray-400 dark:text-gray-500" numberOfLines={1}>
+                        <Text className="text-sm text-gray-900 dark:text-gray-100" numberOfLines={1}>
                           {task.title}
                         </Text>
+                        <Text className="text-[10px] text-gray-400 dark:text-gray-500">{task.site}</Text>
                       </View>
-                      <Text className="text-[10px] text-green-600 font-medium">Done</Text>
+                      <Pressable
+                        onPress={() => goToTask(task.id)}
+                        className="px-2.5 py-1.5 bg-blue-50 rounded-lg"
+                      >
+                        <Text className="text-[10px] font-semibold text-blue-600">Update</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => void handleNoChange(task.id)}
+                        className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg"
+                      >
+                        <Text className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                          {isSubmittingNoChangeId === task.id ? 'Saving...' : 'No change'}
+                        </Text>
+                      </Pressable>
                     </View>
                   ))}
 
-              {/* Complete Handoff button */}
-              <Pressable
-                onPress={() => void handleCompleteHandoff()}
-                disabled={!allEngaged || isSubmittingHandoff}
-                className="mt-4 py-3 rounded-xl items-center"
-                style={{
-                  backgroundColor: allEngaged && !isSubmittingHandoff ? color : isDark ? '#374151' : '#e5e7eb',
-                }}
-              >
-                <Text
-                  className="text-sm font-semibold"
-                  style={{ color: allEngaged && !isSubmittingHandoff ? '#fff' : '#9ca3af' }}
-                >
-                  {isSubmittingHandoff ? 'Completing...' : 'Complete Handoff'}
-                </Text>
-              </Pressable>
-            </Card>
+                  {/* Engaged tasks */}
+                  {engagedTasks.length > 0 &&
+                    engagedTasks.map((task) => (
+                      <View
+                        key={task.id}
+                        className="flex-row items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800"
+                      >
+                        <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                        <View className="flex-1">
+                          <Text className="text-sm text-gray-400 dark:text-gray-500" numberOfLines={1}>
+                            {task.title}
+                          </Text>
+                        </View>
+                        <Text className="text-[10px] text-green-600 font-medium">Done</Text>
+                      </View>
+                    ))}
+
+                  {/* Complete Handoff button */}
+                  <Pressable
+                    onPress={() => void handleCompleteHandoff()}
+                    disabled={!allEngaged || isSubmittingHandoff}
+                    className="mt-4 py-3 rounded-xl items-center"
+                    style={{
+                      backgroundColor: allEngaged && !isSubmittingHandoff ? color : isDark ? '#374151' : '#e5e7eb',
+                    }}
+                  >
+                    <Text
+                      className="text-sm font-semibold"
+                      style={{ color: allEngaged && !isSubmittingHandoff ? '#fff' : '#9ca3af' }}
+                    >
+                      {isSubmittingHandoff ? 'Completing...' : 'Complete Handoff'}
+                    </Text>
+                  </Pressable>
+                </Card>
+              )}
+            </>
           )}
 
           {/* My Performance */}

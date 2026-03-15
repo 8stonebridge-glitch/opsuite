@@ -9,14 +9,32 @@ export default function AuthLayout() {
 
   if (backendAuth.authEnabled && !backendAuth.isLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator color="#059669" />
+      <View className="flex-1 items-center justify-center bg-white dark:bg-gray-950">
+        <ActivityIndicator color="#059669" size="large" />
       </View>
     );
   }
 
   if (state.isAuthenticated) {
-    return <Redirect href="/" />;
+    let targetRoute = "/";
+    switch (state.role) {
+      case 'admin':
+        targetRoute = "/(owner_admin)/overview";
+        break;
+      case 'subadmin':
+        targetRoute = "/(subadmin)/overview";
+        break;
+      case 'employee':
+        targetRoute = "/(employee)/my-day";
+        break;
+    }
+
+    return (
+      <View className="flex-1 items-center justify-center bg-white dark:bg-gray-950">
+        <ActivityIndicator color="#059669" size="large" />
+        <Redirect href={targetRoute as any} />
+      </View>
+    );
   }
 
   return (
