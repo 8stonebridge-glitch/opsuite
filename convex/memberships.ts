@@ -7,23 +7,30 @@ export const listForActiveOrganization = query({
   handler: async (ctx) => {
     const { organizationId, membership } = await requireActiveOrganizationMembership(ctx);
 
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
-      .collect();
+    let visibleMemberships;
 
-    const visibleMemberships =
-      membership.role === "owner_admin"
-        ? memberships.filter((entry) => entry.status === "active")
-        : memberships.filter((entry) => {
-            if (entry.status !== "active") return false;
-            if (entry._id === membership._id) return true;
-            if (entry.role === "owner_admin") return false;
+    if (membership.role === "employee") {
+      // Employees only need their own membership — no full org scan
+      visibleMemberships = [membership];
+    } else {
+      const memberships = await ctx.db
+        .query("memberships")
+        .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
+        .collect();
 
-            const sharesTeam = entry.teamIds.some((teamId) => membership.teamIds.includes(teamId));
-            const sharesSite = entry.siteIds.some((siteId) => membership.siteIds.includes(siteId));
-            return sharesTeam || sharesSite;
-          });
+      visibleMemberships =
+        membership.role === "owner_admin"
+          ? memberships.filter((entry) => entry.status === "active")
+          : memberships.filter((entry) => {
+              if (entry.status !== "active") return false;
+              if (entry._id === membership._id) return true;
+              if (entry.role === "owner_admin") return false;
+
+              const sharesTeam = entry.teamIds.some((teamId) => membership.teamIds.includes(teamId));
+              const sharesSite = entry.siteIds.some((siteId) => membership.siteIds.includes(siteId));
+              return sharesTeam || sharesSite;
+            });
+    }
 
     const usersById = new Map(
       (

@@ -66,16 +66,44 @@ export const listForCurrentScope = query({
   args: {},
   handler: async (ctx) => {
     const { organizationId, membership } = await requireActiveOrganizationMembership(ctx);
-    const scopedMemberships = await getScopedMemberships(ctx, organizationId, membership);
-    const membershipMap = new Map(scopedMemberships.map((entry) => [String(entry._id), entry]));
 
-    const availabilityRecords = await ctx.db
-      .query("availabilityRecords")
-      .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
-      .collect();
+    let records: Doc<"availabilityRecords">[] = [];
+    const membershipMap = new Map<string, Doc<"memberships">>();
 
-    return availabilityRecords
-      .filter((record) => membershipMap.has(String(record.membershipId)))
+    if (membership.role === "employee") {
+      // Employees only see their own availability records — direct index hit
+      membershipMap.set(String(membership._id), membership);
+      records = await ctx.db
+        .query("availabilityRecords")
+        .withIndex("by_membership_id", (q) => q.eq("membershipId", membership._id))
+        .collect();
+    } else if (membership.role === "subadmin") {
+      // Subadmins see records for members in their teams
+      const scopedMemberships = await getScopedMemberships(ctx, organizationId, membership);
+      for (const m of scopedMemberships) membershipMap.set(String(m._id), m);
+
+      // Query per-member using the index instead of scanning the full org
+      const perMember = await Promise.all(
+        scopedMemberships.map((m) =>
+          ctx.db
+            .query("availabilityRecords")
+            .withIndex("by_membership_id", (q) => q.eq("membershipId", m._id))
+            .collect()
+        )
+      );
+      records = perMember.flat();
+    } else {
+      // Admin — org-wide access (legitimate need)
+      const scopedMemberships = await getScopedMemberships(ctx, organizationId, membership);
+      for (const m of scopedMemberships) membershipMap.set(String(m._id), m);
+
+      records = await ctx.db
+        .query("availabilityRecords")
+        .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
+        .collect();
+    }
+
+    return records
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((record) => mapAvailabilityRecord(record, membershipMap));
   },

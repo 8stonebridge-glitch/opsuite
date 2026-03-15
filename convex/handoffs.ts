@@ -215,35 +215,66 @@ export const listForCurrentScope = query({
   handler: async (ctx) => {
     const { organizationId, membership } = await requireActiveOrganizationMembership(ctx);
 
-    const [handoffs, memberships] = await Promise.all([
-      ctx.db
+    let scopedHandoffs: Doc<"dailyHandoffs">[] = [];
+    let scopedMembershipIds: Set<string>;
+    const membershipMap = new Map<string, Doc<"memberships">>();
+
+    if (membership.role === "employee") {
+      // Employees only see their own handoffs — direct index hit, no full scan
+      scopedMembershipIds = new Set([String(membership._id)]);
+      membershipMap.set(String(membership._id), membership);
+      scopedHandoffs = await ctx.db
         .query("dailyHandoffs")
-        .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
-        .collect(),
-      ctx.db
+        .withIndex("by_organization_membership_date", (q) =>
+          q.eq("organizationId", organizationId).eq("membershipId", membership._id)
+        )
+        .collect();
+    } else {
+      // Subadmins and Admins need to see team/org-wide handoffs
+      const memberships = await ctx.db
         .query("memberships")
         .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
-        .collect(),
-    ]);
+        .collect();
 
-    const scopedMemberships = memberships.filter((entry) => {
-      if (entry.status !== "active") return false;
-      if (membership.role === "owner_admin") return true;
-      if (membership.role === "employee") return entry._id === membership._id;
-      if (entry._id === membership._id) return true;
-      return entry.teamIds.some((teamId) =>
-        membership.teamIds.some((myTeamId) => String(myTeamId) === String(teamId)),
-      );
-    });
+      const filtered = memberships.filter((entry) => {
+        if (entry.status !== "active") return false;
+        if (membership.role === "owner_admin") return true;
+        if (entry._id === membership._id) return true;
+        return entry.teamIds.some((teamId) =>
+          membership.teamIds.some((myTeamId) => String(myTeamId) === String(teamId)),
+        );
+      });
 
-    const scopedMembershipIds = new Set(scopedMemberships.map((entry) => String(entry._id)));
-    const scopedHandoffs = handoffs
-      .filter((handoff) => scopedMembershipIds.has(String(handoff.membershipId)))
-      .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+      scopedMembershipIds = new Set(filtered.map((e) => String(e._id)));
+      for (const m of filtered) membershipMap.set(String(m._id), m);
 
-    const membershipMap = new Map(scopedMemberships.map((entry) => [String(entry._id), entry]));
+      // For subadmins with a small team, query per-member instead of full org
+      if (membership.role === "subadmin" && filtered.length <= 20) {
+        const perMember = await Promise.all(
+          filtered.map((m) =>
+            ctx.db
+              .query("dailyHandoffs")
+              .withIndex("by_organization_membership_date", (q) =>
+                q.eq("organizationId", organizationId).eq("membershipId", m._id)
+              )
+              .collect()
+          )
+        );
+        scopedHandoffs = perMember.flat();
+      } else {
+        // Admin or large teams — full org scan (legitimate need)
+        const allHandoffs = await ctx.db
+          .query("dailyHandoffs")
+          .withIndex("by_organization_id", (q) => q.eq("organizationId", organizationId))
+          .collect();
+        scopedHandoffs = allHandoffs.filter((h) => scopedMembershipIds.has(String(h.membershipId)));
+      }
+    }
+
+    scopedHandoffs.sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+
     const users = await Promise.all(
-      [...new Set(scopedMemberships.map((entry) => entry.userId))].map((userId) => ctx.db.get(userId)),
+      [...new Set([...membershipMap.values()].map((e) => e.userId))].map((userId) => ctx.db.get(userId)),
     );
     const userMap = new Map(users.filter(Boolean).map((user) => [String(user!._id), user!]));
 
