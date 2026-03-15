@@ -9,6 +9,7 @@ import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { getAuthErrorMessage, hashPassword, validateEmail } from '../../src/utils/auth';
+import { withTimeout } from '../../src/utils/promise';
 import { useOwnerSessionBootstrap } from '../../src/hooks/useOwnerSessionBootstrap';
 
 export default function SignInScreen() {
@@ -87,10 +88,14 @@ export default function SignInScreen() {
         // Ignore sign-out errors since we're just ensuring clean state
       }
 
-      const result = await signIn.create({
-        identifier: normalizedEmail,
-        password,
-      });
+      const result = await withTimeout(
+        signIn.create({
+          identifier: normalizedEmail,
+          password,
+        }),
+        12000,
+        'Sign in timed out — security check may have failed. Please refresh and try again.',
+      );
 
       if (result.status === 'complete' && result.createdSessionId) {
         await setActive({ session: result.createdSessionId });

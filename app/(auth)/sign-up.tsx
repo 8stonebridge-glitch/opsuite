@@ -10,6 +10,7 @@ import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { INDUSTRIES } from '../../src/constants/industries';
 import { getAuthErrorMessage, validateEmail, validatePassword } from '../../src/utils/auth';
+import { withTimeout } from '../../src/utils/promise';
 import { useTheme } from '../../src/providers/ThemeProvider';
 import type { Industry } from '../../src/types';
 
@@ -74,12 +75,16 @@ export default function SignUpScreen() {
 
     try {
       const nameParts = name.trim().split(/\s+/);
-      await signUp.create({
-        emailAddress: normalizedEmail,
-        password,
-        firstName: nameParts[0],
-        lastName: nameParts.slice(1).join(' ') || undefined,
-      });
+      await withTimeout(
+        signUp.create({
+          emailAddress: normalizedEmail,
+          password,
+          firstName: nameParts[0],
+          lastName: nameParts.slice(1).join(' ') || undefined,
+        }),
+        12000,
+        'Sign up timed out — security check may have failed. Please refresh and try again.',
+      );
 
       // Run email verification prep and signup draft storage in parallel
       await Promise.all([
