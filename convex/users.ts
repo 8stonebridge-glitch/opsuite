@@ -142,6 +142,24 @@ export const syncFromAuth = mutation({
         updatedAt: now,
       });
       await maybeClaimSignupDraft(ctx, existingByEmail._id, email);
+      await maybeResetActiveOrganization(ctx, existingByEmail._id, existingByEmail.activeOrganizationId);
+
+      // Provisioned members may not have an activeOrganizationId yet — set it
+      // to their first active membership so downstream queries work.
+      const refreshed = await ctx.db.get(existingByEmail._id);
+      if (refreshed && !refreshed.activeOrganizationId) {
+        const firstMembership = await ctx.db
+          .query("memberships")
+          .withIndex("by_user_id", (q) => q.eq("userId", existingByEmail._id))
+          .first();
+        if (firstMembership && firstMembership.status === "active") {
+          await ctx.db.patch(existingByEmail._id, {
+            activeOrganizationId: firstMembership.organizationId,
+            updatedAt: now,
+          });
+        }
+      }
+
       return await ctx.db.get(existingByEmail._id);
     }
 

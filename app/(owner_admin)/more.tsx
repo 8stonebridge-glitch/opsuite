@@ -1,4 +1,5 @@
-import { View, Text, Pressable, ScrollView, Alert, Platform } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, ScrollView, Alert, Platform, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,24 +8,83 @@ import { api } from '../../convex/_generated/api';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { authClient } from '../../src/lib/auth-client';
-import { useIndustryColor, useTeams, useAllEmployees, useOrgMode } from '../../src/store/selectors';
+import { useIndustryColor, useTeams, useAllEmployees, useOrgMode, useSitesLabel } from '../../src/store/selectors';
+import { useTheme } from '../../src/providers/ThemeProvider';
 import { ThemeSwitcher } from '../../src/components/ui/ThemeSwitcher';
 import { Card } from '../../src/components/ui/Card';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
 import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 import { OrgSwitcher } from '../../src/components/layout/OrgSwitcher';
+import { uid } from '../../src/utils/id';
 
 export default function OwnerMoreScreen() {
   const { state, dispatch } = useApp();
   const { authEnabled } = useBackendAuth();
   const updateOrgSettings = useMutation(api.orgSettings.update);
   const updateOrgMode = useMutation(api.organizations.updateMode);
+  const createSiteMutation = useMutation(api.sites.create);
   const color = useIndustryColor();
+  const { isDark } = useTheme();
   const teams = useTeams();
   const allEmployees = useAllEmployees();
   const orgMode = useOrgMode();
+  const sitesLabel = useSitesLabel();
   const router = useRouter();
+
+  const [showCreateSite, setShowCreateSite] = useState(false);
+  const [siteName, setSiteName] = useState('');
+  const [siteCode, setSiteCode] = useState('');
+  const [siteError, setSiteError] = useState('');
+  const [isSavingSite, setIsSavingSite] = useState(false);
+
+  const handleCreateSite = async () => {
+    const trimmedName = siteName.trim();
+    const trimmedCode = siteCode.trim();
+
+    if (trimmedName.length < 2) {
+      setSiteError('Enter a site name with at least 2 characters.');
+      return;
+    }
+
+    setSiteError('');
+    setIsSavingSite(true);
+
+    try {
+      if (!state.isDemo && authEnabled) {
+        const createdSite = await createSiteMutation({
+          name: trimmedName,
+          code: trimmedCode || undefined,
+        });
+
+        if (createdSite) {
+          dispatch({
+            type: 'ADD_SITE',
+            site: {
+              id: String(createdSite._id),
+              name: createdSite.name,
+            },
+          });
+        }
+      } else {
+        dispatch({
+          type: 'ADD_SITE',
+          site: {
+            id: uid(),
+            name: trimmedName,
+          },
+        });
+      }
+
+      setSiteName('');
+      setSiteCode('');
+      setShowCreateSite(false);
+    } catch (error) {
+      setSiteError(error instanceof Error ? error.message : 'We could not create that site yet.');
+    } finally {
+      setIsSavingSite(false);
+    }
+  };
 
   const adjustSetting = async (key: 'noChangeAlertWorkdays' | 'reworkAlertCycles', delta: number) => {
     const current = state.orgSettings[key];
@@ -92,11 +152,22 @@ export default function OwnerMoreScreen() {
             </Text>
             <SettingRow icon="business" label="Org Name" value={state.onboarding.orgName} />
             <SettingRow icon="briefcase" label="Industry" value={state.onboarding.industry?.name || '-'} />
-            <SettingRow
-              icon="location"
-              label={state.onboarding.industry?.sitesLabel || 'Sites'}
-              value={`${state.onboarding.sites.length} configured`}
-            />
+            <View className="flex-row items-center gap-3 py-3 border-b border-gray-100 dark:border-gray-800">
+              <Ionicons name="location" size={18} color="#9ca3af" />
+              <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1">
+                {sitesLabel}
+              </Text>
+              <Text className="text-sm text-gray-400 dark:text-gray-500 mr-2">
+                {state.onboarding.sites.length} configured
+              </Text>
+              <Pressable
+                onPress={() => setShowCreateSite(true)}
+                className="w-7 h-7 rounded-full items-center justify-center"
+                style={{ backgroundColor: color + '18' }}
+              >
+                <Ionicons name="add" size={16} color={color} />
+              </Pressable>
+            </View>
             <SettingRow icon="people" label="Teams" value={String(teams.length)} />
             <SettingRow icon="person" label="Employees" value={String(allEmployees.length)} />
             <SettingRow icon="clipboard" label="Total Tasks" value={String(state.tasks.length)} />
@@ -187,6 +258,58 @@ export default function OwnerMoreScreen() {
           />
         </View>
       </ScrollView>
+
+      <Modal visible={showCreateSite} transparent animationType="slide">
+        <Pressable className="flex-1 bg-black/30" onPress={() => setShowCreateSite(false)} />
+        <View className="bg-white dark:bg-gray-950 rounded-t-3xl px-5 pt-5 pb-10">
+          <View className="flex-row items-center justify-between mb-5">
+            <Text className="text-base font-bold text-gray-900 dark:text-gray-100">Add Site</Text>
+            <Pressable onPress={() => setShowCreateSite(false)}>
+              <Ionicons name="close" size={22} color="#6b7280" />
+            </Pressable>
+          </View>
+
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+            Site Name
+          </Text>
+          <TextInput
+            className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
+            placeholder="Victoria Hub"
+            value={siteName}
+            onChangeText={(text) => {
+              setSiteName(text);
+              setSiteError('');
+            }}
+            placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
+          />
+
+          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+            Site Code (optional)
+          </Text>
+          <TextInput
+            className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 mb-4"
+            placeholder="VIC-HUB"
+            value={siteCode}
+            onChangeText={(text) => {
+              setSiteCode(text);
+              setSiteError('');
+            }}
+            autoCapitalize="characters"
+            placeholderTextColor={isDark ? '#6b7280' : '#d1d5db'}
+          />
+
+          {siteError ? (
+            <Text className="text-sm text-red-600 mb-4">{siteError}</Text>
+          ) : null}
+
+          <Button
+            title={isSavingSite ? 'Creating site...' : 'Create Site'}
+            onPress={() => void handleCreateSite()}
+            disabled={isSavingSite}
+            color={color}
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

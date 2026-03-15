@@ -53,6 +53,7 @@ export function NewTaskScreen() {
 
   // All hooks MUST be called before any early return (React Rules of Hooks)
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [siteId, setSiteId] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -190,7 +191,7 @@ export function NewTaskScreen() {
 
         await createTask({
           title: title.trim(),
-          description: cat?.name,
+          description: description.trim() || cat?.name,
           priority: priority as Priority,
           siteId: siteId as never,
           teamId: (emp.teamId || undefined) as never,
@@ -211,6 +212,7 @@ export function NewTaskScreen() {
       const task: Task = {
         id: taskId,
         title: title.trim(),
+        description: description.trim() || undefined,
         site: site?.name || '',
         siteId,
         category: cat?.name,
@@ -285,7 +287,7 @@ export function NewTaskScreen() {
         <View className="gap-5 pb-20">
           <View>
             <Input
-              label="Title"
+              label="Title *"
               value={title}
               onChangeText={(val) => { setTitle(val); setTouched((prev) => ({ ...prev, title: true })); }}
               placeholder="What needs to be done"
@@ -297,10 +299,26 @@ export function NewTaskScreen() {
             ) : null}
           </View>
 
+          <View>
+            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+              Description
+            </Text>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Describe what needs to be done"
+              placeholderTextColor={isDark ? '#4b5563' : '#d1d5db'}
+              multiline
+              numberOfLines={3}
+              className="bg-gray-50 dark:bg-gray-800 rounded-2xl px-4 py-3.5 text-sm text-gray-900 dark:text-gray-100 min-h-[80px]"
+              textAlignVertical="top"
+            />
+          </View>
+
           <View className="flex-row gap-4">
             <View className="flex-1">
               <Select
-                label={singleSiteLabel}
+                label={`${singleSiteLabel} *`}
                 placeholder="Select"
                 options={siteOptions}
                 value={siteId}
@@ -312,7 +330,7 @@ export function NewTaskScreen() {
             </View>
             <View className="flex-1">
               <Select
-                label="Assign to"
+                label="Assign to *"
                 placeholder="Select"
                 options={empOptions}
                 value={assigneeId}
@@ -326,7 +344,7 @@ export function NewTaskScreen() {
 
           <View>
             <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-              Priority
+              Priority *
             </Text>
             <View className="flex-row gap-2">
               {([['low', 'Low'], ['medium', 'Medium'], ['critical', 'High']] as const).map(
@@ -364,42 +382,51 @@ export function NewTaskScreen() {
 
           <View>
             <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-              Due date
+              Due date *
             </Text>
             {Platform.OS === 'web' ? (
-              <View style={{ position: 'relative' }}>
-                <Pressable
-                  className="bg-gray-50 dark:bg-gray-800 rounded-2xl px-4 py-3.5 flex-row items-center justify-between"
-                  onPress={() => {
-                    const inp = document.querySelector('input[data-date-picker]') as HTMLInputElement | null;
-                    inp?.showPicker?.();
-                    inp?.click();
+              <label
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: isDark ? '#1f2937' : '#f9fafb',
+                  borderRadius: 16,
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  paddingTop: 14,
+                  paddingBottom: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 16,
+                    fontFamily: 'inherit',
+                    color: dueDate
+                      ? (isDark ? '#f3f4f6' : '#111827')
+                      : (isDark ? '#4b5563' : '#d1d5db'),
                   }}
                 >
-                  <Text
-                    className={`text-base ${dueDate ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}`}
-                  >
-                    {dueDate ? formatDue(dueDate) || dueDate : 'Select date'}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color={isDark ? '#6b7280' : '#9ca3af'} />
-                </Pressable>
+                  {dueDate ? formatDue(dueDate) || dueDate : 'Select date'}
+                </span>
+                <Ionicons name="calendar-outline" size={20} color={isDark ? '#6b7280' : '#9ca3af'} />
                 <input
-                  data-date-picker=""
                   type="date"
                   value={dueDate}
                   min={new Date().toISOString().split('T')[0]}
                   onChange={(e) => handleDateChange(e.target.value)}
                   style={{
                     position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
                     opacity: 0,
-                    cursor: 'pointer',
+                    width: 0,
+                    height: 0,
+                    overflow: 'hidden',
+                    pointerEvents: 'none',
                   }}
                 />
-              </View>
+              </label>
             ) : (
               <>
                 <Pressable

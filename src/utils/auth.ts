@@ -46,6 +46,15 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Something went w
       return 'An account already exists for that email. Sign in instead or use another email address.';
     }
 
+    if (
+      normalized === 'load failed' ||
+      normalized === 'network request failed' ||
+      normalized.includes('failed to fetch') ||
+      normalized.includes('networkerror')
+    ) {
+      return 'Could not reach the server. Check your connection and try again.';
+    }
+
     return message;
   };
 

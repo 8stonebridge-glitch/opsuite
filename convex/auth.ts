@@ -12,6 +12,7 @@ const trustedOrigins = [
   'exp://',
   'http://localhost',
   'http://localhost:8081',
+  'http://localhost:8082',
   'http://localhost:19006',
   'http://localhost:8088',
   'https://opsuite.vercel.app',
@@ -118,12 +119,16 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
           </div>
         `;
 
-        await sendEmailViaResend({
-          to: user.email,
-          subject: 'Confirm your email for OpSuite',
-          html,
-          text,
-        });
+        try {
+          await sendEmailViaResend({
+            to: user.email,
+            subject: 'Confirm your email for OpSuite',
+            html,
+            text,
+          });
+        } catch (err) {
+          console.error(`[auth] Failed to send verification email to ${user.email}:`, err);
+        }
       },
     },
     plugins: [

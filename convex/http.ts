@@ -47,7 +47,11 @@ http.route({
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
+      const auth = createAuth(ctx);
+      const authCtx = await (auth as any).$context;
+
       // 1. Call Better Auth sign-up endpoint on this same server.
+      let alreadyExists = false;
       const signUpRes = await fetch(`${siteUrl}/api/auth/sign-up/email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,21 +65,21 @@ http.route({
       if (!signUpRes.ok) {
         const errText = await signUpRes.text();
         if (errText.includes('already') || errText.includes('exists') || errText.includes('USER_ALREADY_EXISTS')) {
-          return jsonResponse({ ok: true, alreadyExists: true });
+          alreadyExists = true;
+        } else {
+          return jsonResponse({ error: `Auth signup failed: ${errText}` }, 400);
         }
-        return jsonResponse({ error: `Auth signup failed: ${errText}` }, 400);
       }
 
-      // 2. Mark email as verified using the auth instance's internalAdapter
-      const auth = createAuth(ctx);
-      const authCtx = await (auth as any).$context;
+      // 2. Always mark email as verified — covers both new and existing accounts
+      //    whose verification may have failed on a previous attempt.
       if (authCtx?.internalAdapter?.updateUserByEmail) {
         await authCtx.internalAdapter.updateUserByEmail(normalizedEmail, {
           emailVerified: true,
         });
       }
 
-      return jsonResponse({ ok: true });
+      return jsonResponse({ ok: true, alreadyExists });
     } catch (err: any) {
       return jsonResponse({ error: err.message || 'Unknown error' }, 500);
     }

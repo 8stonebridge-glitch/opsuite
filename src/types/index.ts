@@ -39,6 +39,7 @@ export interface Team {
 export interface Task {
   id: string;
   title: string;
+  description?: string;
   site: string;
   siteId: string;
   category?: string;
