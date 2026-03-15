@@ -248,7 +248,7 @@ export function SessionBridge() {
       workspaceId: activeWorkspaceId,
       sites: buildSyncedSites(sites as never),
       teams: buildSyncedTeams(teams as never, memberships as never),
-      standaloneEmployees: buildStandaloneEmployees(memberships as never, teams as never),
+      standaloneEmployees: buildStandaloneEmployees(memberships as never, teams as never, sites as never),
       orgMode,
     });
   }, [

@@ -149,6 +149,7 @@ export default function OwnerPeopleScreen() {
             // Direct mode with optional team assignment
             const selectedTeam = teams.find((team) => team.id === memberTeamId);
             if (selectedTeam) {
+              const selectedSite = state.onboarding.sites.find((s) => s.id === memberSiteId);
               dispatch({
                 type: 'ADD_MEMBER_TO_TEAM',
                 teamId: selectedTeam.id,
@@ -158,17 +159,22 @@ export default function OwnerPeopleScreen() {
                   role: 'employee',
                   teamId: selectedTeam.id,
                   teamName: selectedTeam.name,
+                  siteId: memberSiteId || undefined,
+                  siteName: selectedSite?.name,
                 },
               });
             }
           } else {
             // Standalone employee — no team
+            const selectedSite = state.onboarding.sites.find((s) => s.id === memberSiteId);
             dispatch({
               type: 'ADD_STANDALONE_EMPLOYEE',
               employee: {
                 id: nextEmployeeId,
                 name: trimmedName,
                 role: 'employee',
+                siteId: memberSiteId || undefined,
+                siteName: selectedSite?.name,
               },
             });
           }
@@ -498,6 +504,7 @@ export default function OwnerPeopleScreen() {
                     score={perf?.score}
                     band={perf?.band}
                     topAction={perf?.actions[0]?.label}
+                    siteName={emp.siteName}
                     availabilityBadge={availBadge}
                     onPress={!state.isDemo ? () => {
                       setEditMember({ id: emp.id, name: emp.name, email: '' });
@@ -725,20 +732,36 @@ export default function OwnerPeopleScreen() {
 
           {/* In direct mode, team/site selection is optional */}
           {isDirect ? (
-            teamOptions.length > 0 ? (
-              <View className="mt-4">
-                <Select
-                  label="Team (optional)"
-                  placeholder="No team"
-                  options={[{ label: 'No team', value: '' }, ...teamOptions]}
-                  value={memberTeamId}
-                  onChange={(value) => {
-                    setMemberTeamId(value);
-                    setMemberError('');
-                  }}
-                />
-              </View>
-            ) : null
+            <>
+              {teamOptions.length > 0 && (
+                <View className="mt-4">
+                  <Select
+                    label="Team (optional)"
+                    placeholder="No team"
+                    options={[{ label: 'No team', value: '' }, ...teamOptions]}
+                    value={memberTeamId}
+                    onChange={(value) => {
+                      setMemberTeamId(value);
+                      setMemberError('');
+                    }}
+                  />
+                </View>
+              )}
+              {state.onboarding.sites.length > 0 && (
+                <View className="mt-4">
+                  <Select
+                    label="Site (optional)"
+                    placeholder="No site"
+                    options={[{ label: 'No site', value: '' }, ...state.onboarding.sites.map((site) => ({ label: site.name, value: site.id }))]}
+                    value={memberSiteId}
+                    onChange={(value) => {
+                      setMemberSiteId(value);
+                      setMemberError('');
+                    }}
+                  />
+                </View>
+              )}
+            </>
           ) : (
             <View className="mt-4">
               <Select

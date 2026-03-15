@@ -23,6 +23,8 @@ export interface Employee {
   role: Role;
   teamId?: string;
   teamName?: string;
+  siteId?: string;
+  siteName?: string;
 }
 
 export interface Team {

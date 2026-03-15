@@ -15,6 +15,7 @@ interface Props {
   score?: number;
   band?: ScoreBand;
   topAction?: string;
+  siteName?: string;
   availabilityBadge?: { label: string; color: string } | null;
   onPress?: () => void;
 }
@@ -35,7 +36,7 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.floor(days / 7)}w ago`;
 }
 
-export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, score, band, topAction, availabilityBadge, onPress }: Props) {
+export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, score, band, topAction, siteName, availabilityBadge, onPress }: Props) {
   const { isDark } = useTheme();
   const Wrapper = onPress ? Pressable : View;
   return (
@@ -61,6 +62,11 @@ export function EmployeeSummaryCard({ name, teamColor, summary, isLead, last, sc
           )}
         </View>
         <View className="flex-row items-center gap-2">
+          {siteName && (
+            <Text className="text-xs text-gray-400 dark:text-gray-500">
+              {siteName} ·
+            </Text>
+          )}
           <Text className="text-xs text-gray-400 dark:text-gray-500">
             {summary.activeCount} active
           </Text>

@@ -38,6 +38,7 @@ interface MembershipDirectoryEntry {
     _id: string;
     role: 'owner_admin' | 'subadmin' | 'employee';
     teamIds: string[];
+    siteIds: string[];
   };
   user: {
     _id: string;
@@ -188,8 +189,10 @@ export function buildSyncedTeams(
 export function buildStandaloneEmployees(
   memberships: MembershipDirectoryEntry[],
   teams: TeamEntry[],
+  sites?: SiteEntry[],
 ): Employee[] {
   const teamIds = new Set(teams.map((t) => String(t._id)));
+  const siteMap = new Map((sites || []).map((s) => [String(s._id), s.name]));
   return memberships
     .filter((entry) => {
       if (entry.membership.role === 'owner_admin') return false;
@@ -197,10 +200,15 @@ export function buildStandaloneEmployees(
       const memberTeamIds = entry.membership.teamIds.map(String);
       return memberTeamIds.length === 0 || !memberTeamIds.some((tid) => teamIds.has(tid));
     })
-    .map((entry) => ({
-      id: String(entry.user._id),
-      name: entry.user.name,
-      role: entry.membership.role as 'employee' | 'subadmin',
-    }))
+    .map((entry) => {
+      const firstSiteId = entry.membership.siteIds[0] ? String(entry.membership.siteIds[0]) : undefined;
+      return {
+        id: String(entry.user._id),
+        name: entry.user.name,
+        role: entry.membership.role as 'employee' | 'subadmin',
+        siteId: firstSiteId,
+        siteName: firstSiteId ? siteMap.get(firstSiteId) : undefined,
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
