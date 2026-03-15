@@ -5,7 +5,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../src/store/AppContext';
 import { authClient } from '../../src/lib/auth-client';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useCurrentName, useMyTeam, useIndustryColor, useCheckInStats, useAvailability } from '../../src/store/selectors';
+import { useBackendAuth } from '../../src/providers/BackendProviders';
+import { getToday, getNowISO } from '../../src/utils/date';
+import { uid } from '../../src/utils/id';
 import { useTheme } from '../../src/providers/ThemeProvider';
 import { ThemeSwitcher } from '../../src/components/ui/ThemeSwitcher';
 import { Card } from '../../src/components/ui/Card';
@@ -24,7 +29,57 @@ export default function EmployeeMoreScreen() {
   const availability = useAvailability();
   const router = useRouter();
   const [showLeaveSheet, setShowLeaveSheet] = useState(false);
+  const [isSubmittingSick, setIsSubmittingSick] = useState(false);
   const { isDark } = useTheme();
+  const { authEnabled } = useBackendAuth();
+  const isBackendMode = !state.isDemo && authEnabled;
+  const createAvailabilityRequest = useMutation(api.availability.createRequest);
+  const today = getToday();
+
+  const hasAvailabilityToday = state.availability.some(
+    (r) =>
+      r.memberId === state.userId &&
+      r.startDate <= today &&
+      r.endDate >= today &&
+      r.status !== 'cancelled' &&
+      r.status !== 'rejected'
+  );
+
+  const handleReportSick = async () => {
+    if (isBackendMode) {
+      setIsSubmittingSick(true);
+      try {
+        await createAvailabilityRequest({
+          type: 'sick',
+          startDate: today,
+          endDate: today,
+          notes: 'Reported sick',
+        });
+      } finally {
+        setIsSubmittingSick(false);
+      }
+      return;
+    }
+
+    if (!state.userId || !state.activeWorkspaceId) return;
+    dispatch({
+      type: 'REQUEST_AVAILABILITY',
+      record: {
+        id: uid(),
+        organizationId: state.activeWorkspaceId,
+        memberId: state.userId,
+        type: 'sick',
+        status: 'pending',
+        startDate: today,
+        endDate: today,
+        notes: 'Reported sick',
+        requestedById: state.userId,
+        approvedById: null,
+        createdAt: getNowISO(),
+        approvedAt: null,
+      },
+    });
+  };
 
   const completedCount = state.tasks.filter(
     (t) => t.assigneeId === state.userId && (t.status === 'Completed' || t.status === 'Verified')
@@ -49,6 +104,19 @@ export default function EmployeeMoreScreen() {
             <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
               Availability
             </Text>
+            {!hasAvailabilityToday && (
+              <Pressable
+                onPress={() => void handleReportSick()}
+                disabled={isSubmittingSick}
+                className="flex-row items-center gap-3 py-3 border-b border-gray-100 dark:border-gray-800"
+              >
+                <Ionicons name="medkit" size={18} color="#ef4444" />
+                <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1">
+                  {isSubmittingSick ? 'Reporting Sick...' : 'Report Sick Today'}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={isDark ? '#4b5563' : '#d1d5db'} />
+              </Pressable>
+            )}
             <Pressable
               onPress={() => setShowLeaveSheet(true)}
               className="flex-row items-center gap-3 py-3 border-b border-gray-100 dark:border-gray-800"

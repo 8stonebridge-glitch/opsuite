@@ -2,11 +2,10 @@ import React, { createContext, useContext, useState, useCallback, useMemo, type 
 import type { AppNotification } from '../../types';
 import { useApp } from '../../store/AppContext';
 import { buildNotificationsForRole } from '../../utils/notification-builder';
-import { getNowISO } from '../../utils/date';
 
 // ── Seen-state key helper ────────────────────────────────────────────
 
-function notifSeenKey(wsId: string, accountId: string): string {
+function stateKey(wsId: string, accountId: string): string {
   return `notif-${wsId}-${accountId}`;
 }
 
@@ -15,10 +14,12 @@ function notifSeenKey(wsId: string, accountId: string): string {
 interface InboxContextValue {
   notifications: AppNotification[];
   unreadCount: number;
-  seenAt: string;
   showInbox: boolean;
   openInbox: () => void;
   closeInbox: () => void;
+  markRead: (id: string) => void;
+  dismiss: (id: string) => void;
+  isRead: (id: string) => boolean;
 }
 
 const InboxContext = createContext<InboxContextValue | null>(null);
@@ -28,12 +29,13 @@ const InboxContext = createContext<InboxContextValue | null>(null);
 export function InboxProvider({ children }: { children: ReactNode }) {
   const { state } = useApp();
 
-  // seenAt map: key → ISO timestamp of last inbox open
-  const [seenAtMap, setSeenAtMap] = useState<Record<string, string>>({});
+  // Per-key sets of read and dismissed notification IDs
+  const [readMap, setReadMap] = useState<Record<string, Set<string>>>({});
+  const [dismissedMap, setDismissedMap] = useState<Record<string, Set<string>>>({});
   const [showInbox, setShowInbox] = useState(false);
 
   // Build notifications from current state
-  const notifications = useMemo(() => {
+  const allNotifications = useMemo(() => {
     if (!state.isAuthenticated) return [];
     return buildNotificationsForRole(
       state.role,
@@ -55,34 +57,67 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     state.teams,
   ]);
 
-  // Current seen key
-  const seenKey = state.currentAccountId
-    ? notifSeenKey(state.activeWorkspaceId, state.currentAccountId)
+  // Current key
+  const key = state.currentAccountId
+    ? stateKey(state.activeWorkspaceId, state.currentAccountId)
     : '';
-  const seenAt = seenKey ? seenAtMap[seenKey] || '' : '';
+  const readIds = key ? readMap[key] || new Set<string>() : new Set<string>();
+  const dismissedIds = key ? dismissedMap[key] || new Set<string>() : new Set<string>();
 
-  const unreadCount = useMemo(() => {
-    if (!seenAt) return notifications.length;
-    return notifications.filter((n) => n.timestamp > seenAt).length;
-  }, [notifications, seenAt]);
+  // Filter out dismissed notifications
+  const notifications = useMemo(
+    () => allNotifications.filter((n) => !dismissedIds.has(n.id)),
+    [allNotifications, dismissedIds]
+  );
 
-  const markInboxSeen = useCallback(() => {
-    if (!seenKey) return;
-    setSeenAtMap((prev) => ({ ...prev, [seenKey]: getNowISO() }));
-  }, [seenKey]);
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !readIds.has(n.id)).length,
+    [notifications, readIds]
+  );
+
+  const markRead = useCallback(
+    (id: string) => {
+      if (!key) return;
+      setReadMap((prev) => {
+        const existing = prev[key] || new Set<string>();
+        if (existing.has(id)) return prev;
+        const next = new Set(existing);
+        next.add(id);
+        return { ...prev, [key]: next };
+      });
+    },
+    [key]
+  );
+
+  const dismiss = useCallback(
+    (id: string) => {
+      if (!key) return;
+      setDismissedMap((prev) => {
+        const existing = prev[key] || new Set<string>();
+        const next = new Set(existing);
+        next.add(id);
+        return { ...prev, [key]: next };
+      });
+    },
+    [key]
+  );
+
+  const isRead = useCallback(
+    (id: string) => readIds.has(id),
+    [readIds]
+  );
 
   const openInbox = useCallback(() => {
     setShowInbox(true);
   }, []);
 
   const closeInbox = useCallback(() => {
-    markInboxSeen();
     setShowInbox(false);
-  }, [markInboxSeen]);
+  }, []);
 
   const value = useMemo<InboxContextValue>(
-    () => ({ notifications, unreadCount, seenAt, showInbox, openInbox, closeInbox }),
-    [notifications, unreadCount, seenAt, showInbox, openInbox, closeInbox]
+    () => ({ notifications, unreadCount, showInbox, openInbox, closeInbox, markRead, dismiss, isRead }),
+    [notifications, unreadCount, showInbox, openInbox, closeInbox, markRead, dismiss, isRead]
   );
 
   return <InboxContext.Provider value={value}>{children}</InboxContext.Provider>;

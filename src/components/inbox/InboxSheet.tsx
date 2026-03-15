@@ -41,10 +41,12 @@ function NotificationRow({
   notification,
   isUnread,
   onPress,
+  onDismiss,
 }: {
   notification: AppNotification;
   isUnread: boolean;
   onPress: () => void;
+  onDismiss: () => void;
 }) {
   const { isDark } = useTheme();
 
@@ -76,8 +78,17 @@ function NotificationRow({
         </Text>
       </View>
 
-      {/* Chevron */}
-      <Ionicons name="chevron-forward" size={16} color={isDark ? '#4b5563' : '#d1d5db'} />
+      {/* Dismiss button */}
+      <Pressable
+        onPress={(e) => {
+          e.stopPropagation?.();
+          onDismiss();
+        }}
+        className="p-1.5"
+        hitSlop={8}
+      >
+        <Ionicons name="close" size={16} color={isDark ? '#6b7280' : '#9ca3af'} />
+      </Pressable>
     </Pressable>
   );
 }
@@ -85,7 +96,7 @@ function NotificationRow({
 // ── Sheet ────────────────────────────────────────────────────────────
 
 export function InboxSheet() {
-  const { notifications, seenAt, showInbox, closeInbox } = useInbox();
+  const { notifications, showInbox, closeInbox, markRead, dismiss, isRead } = useInbox();
   const { state } = useApp();
   const { isDark } = useTheme();
   const router = useRouter();
@@ -151,6 +162,7 @@ export function InboxSheet() {
   };
 
   const handlePress = (notification: AppNotification) => {
+    markRead(notification.id);
     closeInbox();
     let targetPath = resolveNotificationPath(notification, state.role);
 
@@ -162,6 +174,10 @@ export function InboxSheet() {
     setTimeout(() => {
       router.push(targetPath as any);
     }, 100);
+  };
+
+  const handleDismiss = (id: string) => {
+    dismiss(id);
   };
 
   return (
@@ -189,8 +205,9 @@ export function InboxSheet() {
             renderItem={({ item }) => (
               <NotificationRow
                 notification={item}
-                isUnread={!seenAt || item.timestamp > seenAt}
+                isUnread={!isRead(item.id)}
                 onPress={() => handlePress(item)}
+                onDismiss={() => handleDismiss(item.id)}
               />
             )}
             contentContainerStyle={{ paddingBottom: 40 }}

@@ -16,7 +16,6 @@ import {
   useIsProtectedUnavailableToday,
 } from '../../src/store/selectors';
 import { getToday, getNowISO } from '../../src/utils/date';
-import { uid } from '../../src/utils/id';
 import { buildHandoffSummary } from '../../src/utils/handoff-helpers';
 import { RoleSwitcher } from '../../src/components/layout/RoleSwitcher';
 import { TaskPreviewSection } from '../../src/components/overview/TaskPreviewSection';
@@ -50,10 +49,8 @@ export default function EmployeeMyDayScreen() {
   );
   const markNoChange = useMutation(api.tasks.markNoChange);
   const completeHandoff = useMutation(api.handoffs.completeForToday);
-  const createAvailabilityRequest = useMutation(api.availability.createRequest);
   const [isSubmittingHandoff, setIsSubmittingHandoff] = useState(false);
   const [isSubmittingNoChangeId, setIsSubmittingNoChangeId] = useState<string | null>(null);
-  const [isSubmittingSick, setIsSubmittingSick] = useState(false);
 
   const backendTasks = backendTaskLists?.scopedTasks || [];
   const { dueToday, overdue, inProgress } = useMemo(() => {
@@ -175,53 +172,6 @@ export default function EmployeeMyDayScreen() {
   const goToTasks = () => {
     router.push('/(employee)/tasks' as any);
   };
-
-  // Report sick today (immediate protection)
-  const handleReportSick = async () => {
-    if (isBackendMode) {
-      setIsSubmittingSick(true);
-      try {
-        await createAvailabilityRequest({
-          type: 'sick',
-          startDate: today,
-          endDate: today,
-          notes: 'Reported sick',
-        });
-      } finally {
-        setIsSubmittingSick(false);
-      }
-      return;
-    }
-
-    if (!state.userId || !state.activeWorkspaceId) return;
-    dispatch({
-      type: 'REQUEST_AVAILABILITY',
-      record: {
-        id: uid(),
-        organizationId: state.activeWorkspaceId,
-        memberId: state.userId,
-        type: 'sick',
-        status: 'pending',
-        startDate: today,
-        endDate: today,
-        notes: 'Reported sick',
-        requestedById: state.userId,
-        approvedById: null,
-        createdAt: getNowISO(),
-        approvedAt: null,
-      },
-    });
-  };
-
-  // Check if already reported sick or on leave today
-  const hasAvailabilityToday = state.availability.some(
-    (r) =>
-      r.memberId === state.userId &&
-      r.startDate <= today &&
-      r.endDate >= today &&
-      r.status !== 'cancelled' &&
-      r.status !== 'rejected'
-  );
 
   const isEmpty = dueToday.length === 0 && overdue.length === 0 && inProgress.length === 0;
 
@@ -403,21 +353,6 @@ export default function EmployeeMyDayScreen() {
                 </Text>
               </Pressable>
             </Card>
-          )}
-
-          {/* Report Sick — only when not already unavailable */}
-          {!isUnavailable && !hasAvailabilityToday && (
-            <Pressable onPress={() => void handleReportSick()} disabled={isSubmittingSick}>
-              <Card className="flex-row items-center gap-3">
-                <View className="w-8 h-8 rounded-full items-center justify-center bg-red-50">
-                  <Ionicons name="medkit" size={16} color="#ef4444" />
-                </View>
-                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1">
-                  {isSubmittingSick ? 'Reporting Sick...' : 'Report Sick Today'}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={isDark ? '#4b5563' : '#d1d5db'} />
-              </Card>
-            </Pressable>
           )}
 
           {/* My Performance */}
