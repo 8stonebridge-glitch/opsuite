@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { useTheme } from '../../src/providers/ThemeProvider';
+import { CommonActions } from '@react-navigation/native';
 
 export default function SubAdminLayout() {
   const insets = useSafeAreaInsets();
@@ -71,6 +72,17 @@ export default function SubAdminLayout() {
             </View>
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.dispatch(
+              CommonActions.navigate({
+                name: 'tasks',
+                params: { screen: 'index' },
+              })
+            );
+          },
+        })}
       />
       <Tabs.Screen
         name="people"

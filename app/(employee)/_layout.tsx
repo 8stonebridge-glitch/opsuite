@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../src/store/AppContext';
 import { useBackendAuth } from '../../src/providers/BackendProviders';
 import { useTheme } from '../../src/providers/ThemeProvider';
+import { CommonActions } from '@react-navigation/native';
 
 export default function EmployeeLayout() {
   const insets = useSafeAreaInsets();
@@ -61,6 +62,17 @@ export default function EmployeeLayout() {
           title: 'Tasks',
           tabBarIcon: ({ color: c }) => <Ionicons name="clipboard" size={22} color={c} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.dispatch(
+              CommonActions.navigate({
+                name: 'tasks',
+                params: { screen: 'index' },
+              })
+            );
+          },
+        })}
       />
       <Tabs.Screen
         name="check-in"
