@@ -173,8 +173,12 @@ export function SessionBridge() {
 
     const { activeWorkspaceId, workspaces } = buildSyncedWorkspaces(organizations, activeOrganization);
 
-    // Derive the user's role and Convex userId from the active membership
-    const activeMembershipRole = activeOrganization?.membership?.role;
+    // Derive the user's role and Convex userId from the active membership.
+    // Fall back to the organizations array for provisioned users whose
+    // activeOrganizationId is not yet set (activeOrganization is null).
+    const activeMembershipRole =
+      activeOrganization?.membership?.role ??
+      ((organizations as any[]).find((e: any) => e?.isActive) ?? (organizations as any[])[0])?.membership?.role;
     const convexUserId = viewer.user?._id ? String(viewer.user._id) : null;
     const mappedRole: 'admin' | 'subadmin' | 'employee' =
       activeMembershipRole === 'owner_admin' ? 'admin'

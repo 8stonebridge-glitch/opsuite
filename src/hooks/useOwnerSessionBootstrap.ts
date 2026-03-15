@@ -31,6 +31,17 @@ export function useOwnerSessionBootstrap() {
 
     const { activeWorkspaceId, workspaces } = buildSyncedWorkspaces(organizations, activeOrganization);
 
+    // Derive role from the active (or first) org membership so provisioned
+    // employees/subadmins are routed correctly on first sign-in.
+    const orgEntries = organizations as Array<{ organization: any; membership?: { role?: string }; isActive: boolean } | null>;
+    const activeEntry = orgEntries.find((e) => e?.isActive) ?? orgEntries[0];
+    const membershipRole = activeEntry?.membership?.role;
+    const backendRole: 'admin' | 'subadmin' | 'employee' =
+      membershipRole === 'owner_admin' ? 'admin'
+      : membershipRole === 'subadmin' ? 'subadmin'
+      : membershipRole === 'employee' ? 'employee'
+      : 'admin';
+
     dispatch({
       type: 'SYNC_EXTERNAL_OWNER',
       authUserId,
@@ -38,6 +49,7 @@ export function useOwnerSessionBootstrap() {
       email,
       workspaces,
       activeWorkspaceId,
+      backendRole,
     });
   };
 }
