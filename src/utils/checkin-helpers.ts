@@ -75,11 +75,7 @@ export function computeCheckInStats(
     daysToCheck = getMonthDays(now.getFullYear(), now.getMonth()).filter((d) => d <= today);
   }
 
-  // Filter to weekdays only (Mon-Fri)
-  daysToCheck = daysToCheck.filter((d) => {
-    const dow = new Date(`${d}T12:00:00`).getDay();
-    return dow >= 1 && dow <= 5;
-  });
+  // Opsuite runs operations 7 days a week, so include all days to today
 
   const checkedDates = new Set(
     userCheckIns.filter((c) => c.status === 'Checked-In').map((c) => c.date)
@@ -104,10 +100,7 @@ function getAllWorkdays(userId: string, checkIns: CheckIn[]): string[] {
   const days: string[] = [];
   const d = new Date(start);
   while (d.toISOString().split('T')[0] <= today) {
-    const dow = d.getDay();
-    if (dow >= 1 && dow <= 5) {
-      days.push(d.toISOString().split('T')[0]);
-    }
+    days.push(d.toISOString().split('T')[0]);
     d.setDate(d.getDate() + 1);
   }
   return days;

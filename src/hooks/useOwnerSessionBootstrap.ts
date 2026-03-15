@@ -18,7 +18,7 @@ export function useOwnerSessionBootstrap() {
     email: string;
   }) => {
     await waitForConvexIdentity(convex);
-    await syncFromAuth({});
+    const syncedUser = await syncFromAuth({});
 
     const [organizations, activeOrganization] = await Promise.all([
       convex.query(api.organizations.listForViewer, {}),
@@ -50,6 +50,7 @@ export function useOwnerSessionBootstrap() {
       workspaces,
       activeWorkspaceId,
       backendRole,
+      backendUserId: syncedUser?._id ? String(syncedUser._id) : null,
     });
   };
 }

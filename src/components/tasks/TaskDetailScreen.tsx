@@ -349,7 +349,12 @@ export function TaskDetailScreen({ updatePath }: TaskDetailScreenProps) {
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Task info */}
         <Card className="mx-5 mt-4">
-          <Text className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">{task.title}</Text>
+          <Text className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">{task.title}</Text>
+          {task.description ? (
+            <Text className="text-sm text-gray-500 dark:text-gray-400 mb-3">{task.description}</Text>
+          ) : (
+            <View className="mb-3" />
+          )}
           <View className="flex-row gap-2 mb-4">
             <StatusBadge status={task.status} />
             <PriorityBadge priority={task.priority} />

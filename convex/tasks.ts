@@ -141,6 +141,7 @@ async function hydrateTasks(
     return {
       id: String(task._id),
       title: task.title,
+      description: task.description,
       site: site?.name || "",
       siteId: task.siteId ? String(task.siteId) : "",
       category: task.description,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +26,7 @@ export default function SignInScreen() {
   const [isClearingSession, setIsClearingSession] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [isRestoringWorkspace, setIsRestoringWorkspace] = useState(false);
+  const [isNavigatingAway, setIsNavigatingAway] = useState(false);
 
   useEffect(() => {
     setEmail('');
@@ -169,7 +170,9 @@ export default function SignInScreen() {
         name: result.data?.user?.name || 'Owner',
         email: normalizedEmail,
       });
-      router.replace('/');
+      // Auth layout's <Redirect href="/" /> fires automatically when
+      // state.isAuthenticated becomes true — no explicit navigate needed.
+      setIsNavigatingAway(true);
     } catch (err) {
       const message = getAuthErrorMessage(err, 'We could not sign you in.');
       if (isEmailVerificationMessage(message)) {
@@ -208,7 +211,7 @@ export default function SignInScreen() {
         name: backendAuth.fullName || 'Owner',
         email: backendAuth.email,
       });
-      router.replace('/');
+      setIsNavigatingAway(true);
     } catch (err) {
       setError(getAuthErrorMessage(err, 'We could not restore the current session yet.'));
     } finally {
@@ -231,6 +234,16 @@ export default function SignInScreen() {
       setIsClearingSession(false);
     }
   };
+
+  if (isNavigatingAway) {
+    return (
+      <SafeAreaView className="flex-1 bg-white dark:bg-gray-950">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#059669" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-gray-950">

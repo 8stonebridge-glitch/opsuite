@@ -62,10 +62,27 @@ export default function EmployeeCheckInScreen() {
   const [activeTab, setActiveTab] = useState<StatsTab>('checked');
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
-  const todayCheckIn = useMemo(
+  const localCheckIn = useMemo(
     () => state.checkIns.find((c) => c.userId === state.userId && c.date === today),
     [state.checkIns, state.userId, today]
   );
+
+  const todayCheckIn = isBackendMode
+    ? backendHandoff?.handoffDone
+      ? {
+        userId: state.userId || '',
+        date: today,
+        status: 'Checked-In' as const,
+        type: backendHandoff.handoff?.type === 'tasks_reviewed' ? 'Tasks Reviewed' : 'No Tasks',
+        checkedInAt: backendHandoff.handoff?.completedAt
+          ? new Date(backendHandoff.handoff.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+          : '',
+        summary: backendHandoff.total > 0
+          ? `${backendHandoff.total} tasks reviewed`
+          : 'No active tasks',
+      }
+      : undefined
+    : localCheckIn;
 
   const weekDays = getCurrentWeekDays(today);
 
@@ -73,7 +90,10 @@ export default function EmployeeCheckInScreen() {
 
   const handleCheckIn = async () => {
     if (isBackendMode) {
-      if (!backendHandoff?.canComplete) {
+      // Still loading — do nothing
+      if (backendHandoff === undefined) return;
+
+      if (!backendHandoff.canComplete) {
         router.push('/(employee)/my-day');
         return;
       }
@@ -136,12 +156,9 @@ export default function EmployeeCheckInScreen() {
 
   // Month check-in data for list views
   const monthDays = useMemo(() => {
-    const days = getMonthDays(viewYear, viewMonth).filter((d) => d <= today);
-    // Weekdays only
-    return days.filter((d) => {
-      const dow = new Date(`${d}T12:00:00`).getDay();
-      return dow >= 1 && dow <= 5;
-    }).reverse();
+    return getMonthDays(viewYear, viewMonth)
+      .filter((d) => d <= today)
+      .reverse();
   }, [viewYear, viewMonth, today]);
 
   const checkedDays = useMemo(
@@ -177,11 +194,14 @@ export default function EmployeeCheckInScreen() {
                 </Text>
                 <Button
                   title={
-                    isBackendMode && backendHandoff && !backendHandoff.canComplete
-                      ? 'Open My Day'
-                      : 'Check In Now'
+                    isBackendMode && backendHandoff === undefined
+                      ? 'Loading...'
+                      : isBackendMode && backendHandoff && !backendHandoff.canComplete
+                        ? 'Open My Day'
+                        : 'Check In Now'
                   }
                   onPress={() => void handleCheckIn()}
+                  disabled={isBackendMode && backendHandoff === undefined}
                   color={color}
                   className="w-full"
                 />
@@ -225,9 +245,8 @@ export default function EmployeeCheckInScreen() {
                       {getDayLabel(day)}
                     </Text>
                     <View
-                      className={`h-9 w-9 rounded-full items-center justify-center ${
-                        isToday ? 'border-2' : ''
-                      }`}
+                      className={`h-9 w-9 rounded-full items-center justify-center ${isToday ? 'border-2' : ''
+                        }`}
                       style={isToday ? { borderColor: color } : undefined}
                     >
                       {isFuture || isWeekend ? (
@@ -545,8 +564,8 @@ function StreaksView({ stats, color }: { stats: { currentStreak: number; longest
             {stats.currentStreak >= 20
               ? 'Legendary! Keep going!'
               : stats.currentStreak >= 10
-              ? 'On fire! Amazing consistency!'
-              : 'Great start! Keep the momentum!'}
+                ? 'On fire! Amazing consistency!'
+                : 'Great start! Keep the momentum!'}
           </Text>
         </Card>
       )}

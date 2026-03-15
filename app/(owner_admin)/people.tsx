@@ -126,9 +126,15 @@ export default function OwnerPeopleScreen() {
       return;
     }
 
-    if (!state.isDemo && memberPassword.length > 0 && memberPassword.length < 6) {
-      setMemberError('Password must be at least 6 characters.');
-      return;
+    if (!state.isDemo) {
+      if (!memberPassword) {
+        setMemberError('A password is required so this person can sign in.');
+        return;
+      }
+      if (memberPassword.length < 6) {
+        setMemberError('Password must be at least 6 characters.');
+        return;
+      }
     }
 
     if (memberRole === 'employee' && !memberTeamId && !isDirect) {
@@ -224,18 +230,16 @@ export default function OwnerPeopleScreen() {
         });
 
         // Create auth account so the person can sign in immediately
-        if (memberPassword.length >= 6) {
-          try {
-            const siteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL || '';
-            if (siteUrl) {
-              await fetch(`${siteUrl}/admin/create-auth-account`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer admin' },
-                body: JSON.stringify({ name: trimmedName, email: normalizedEmail, password: memberPassword }),
-              });
-            }
-          } catch (e) {
-            console.warn('Auth account creation failed — user can still be set up later.', e);
+        const siteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL || '';
+        if (siteUrl) {
+          const authRes = await fetch(`${siteUrl}/admin/create-auth-account`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer admin' },
+            body: JSON.stringify({ name: trimmedName, email: normalizedEmail, password: memberPassword }),
+          });
+          if (!authRes.ok) {
+            const errBody = await authRes.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errBody.error || 'Failed to create login credentials.');
           }
         }
 
@@ -401,11 +405,15 @@ export default function OwnerPeopleScreen() {
         );
         const oldEmail = dirEntry?.user?.email || '';
         if (oldEmail && oldEmail !== normalizedEmail) {
-          await fetch(`${siteUrl}/admin/update-auth-email`, {
+          const emailRes = await fetch(`${siteUrl}/admin/update-auth-email`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ oldEmail, newEmail: normalizedEmail }),
           });
+          if (!emailRes.ok) {
+            const errBody = await emailRes.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errBody.error || 'Failed to update login email.');
+          }
         }
       }
 
@@ -416,11 +424,15 @@ export default function OwnerPeopleScreen() {
         );
         const targetEmail = normalizedEmail || dirEntry?.user?.email || '';
         if (targetEmail) {
-          await fetch(`${siteUrl}/admin/update-auth-password`, {
+          const pwRes = await fetch(`${siteUrl}/admin/update-auth-password`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: targetEmail, newPassword: editPassword }),
           });
+          if (!pwRes.ok) {
+            const errBody = await pwRes.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errBody.error || 'Failed to update password.');
+          }
         }
       }
 
@@ -738,11 +750,11 @@ export default function OwnerPeopleScreen() {
             {!state.isDemo && (
               <>
                 <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                  Password
+                  Password <Text className="text-red-400">*</Text>
                 </Text>
                 <TextInput
                   className="bg-gray-50 dark:bg-gray-900 rounded-2xl px-4 py-3.5 text-base text-gray-900 dark:text-gray-100"
-                  placeholder="Min. 6 characters"
+                  placeholder="Min. 6 characters (required)"
                   value={memberPassword}
                   onChangeText={(text) => {
                     setMemberPassword(text);
