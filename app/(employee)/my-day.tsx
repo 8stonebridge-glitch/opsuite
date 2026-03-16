@@ -294,29 +294,31 @@ export default function EmployeeMyDayScreen() {
                   {handoff.remaining.map((task) => (
                     <View
                       key={task.id}
-                      className="flex-row items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800"
+                      className="py-2.5 border-b border-gray-50 dark:border-gray-800"
                     >
-                      <View className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                      <View className="flex-1">
-                        <Text className="text-sm text-gray-900 dark:text-gray-100" numberOfLines={1}>
+                      <View className="flex-row items-center gap-2">
+                        <View className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" style={{ flexShrink: 0 }} />
+                        <Text className="text-sm text-gray-900 dark:text-gray-100 flex-1" numberOfLines={1} style={{ minWidth: 0 }}>
                           {task.title}
                         </Text>
-                        <Text className="text-[10px] text-gray-400 dark:text-gray-500">{task.site}</Text>
                       </View>
-                      <Pressable
-                        onPress={() => goToTask(task.id)}
-                        className="px-2.5 py-1.5 bg-blue-50 rounded-lg"
-                      >
-                        <Text className="text-[10px] font-semibold text-blue-600">Update</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => void handleNoChange(task.id)}
-                        className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg"
-                      >
-                        <Text className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                          {isSubmittingNoChangeId === task.id ? 'Saving...' : 'No change'}
-                        </Text>
-                      </Pressable>
+                      <View className="flex-row items-center gap-2 mt-1.5 ml-4">
+                        <Text className="text-[10px] text-gray-400 dark:text-gray-500 flex-1" numberOfLines={1}>{task.site}</Text>
+                        <Pressable
+                          onPress={() => goToTask(task.id)}
+                          className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950 rounded-lg"
+                        >
+                          <Text className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">Update</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => void handleNoChange(task.id)}
+                          className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg"
+                        >
+                          <Text className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                            {isSubmittingNoChangeId === task.id ? '...' : 'No change'}
+                          </Text>
+                        </Pressable>
+                      </View>
                     </View>
                   ))}
 

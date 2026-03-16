@@ -114,7 +114,8 @@ function SettingRow({
       </Text>
       <Text
         className="text-sm text-gray-400 dark:text-gray-500 text-right"
-        style={{ maxWidth: '46%', flexShrink: 1, flexWrap: 'wrap' }}
+        style={{ maxWidth: '46%', flexShrink: 1 }}
+        numberOfLines={2}
       >
         {value}
       </Text>

@@ -58,33 +58,38 @@ export function TaskCard({ task, onPress, quickActions, stalledDays, assigneeAwa
           {/* Title row */}
           <View className="flex-row items-center gap-2">
             <View
-              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: PRIORITY_COLORS[task.priority] || '#9ca3af' }}
+              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: PRIORITY_COLORS[task.priority] || '#9ca3af', flexShrink: 0 }}
             />
-            <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex-1" numberOfLines={1}>
+            <Text className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex-1" numberOfLines={1} style={{ minWidth: 0 }}>
               {task.title}
             </Text>
             <StatusBadge status={task.status} />
-            {task.reworked && (
-              <View className="bg-amber-100 dark:bg-amber-950 rounded-full px-2 py-0.5">
-                <Text className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">R{task.reworkCount || 1}</Text>
-              </View>
-            )}
-            {stalledDays != null && stalledDays > 0 && (
-              <View className="bg-amber-50 dark:bg-amber-950 rounded-full px-2 py-0.5">
-                <Text className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Stalled {stalledDays}d</Text>
-              </View>
-            )}
-            {coverageNeeded && (
-              <View className="bg-orange-50 dark:bg-orange-950 rounded-full px-2 py-0.5">
-                <Text className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">Coverage</Text>
-              </View>
-            )}
-            {assigneeAway && !coverageNeeded && (
-              <View className="bg-blue-50 dark:bg-blue-950 rounded-full px-2 py-0.5">
-                <Text className="text-[10px] font-semibold text-blue-500 dark:text-blue-400">Away</Text>
-              </View>
-            )}
           </View>
+          {/* Badge row — wraps to second line on small screens */}
+          {(task.reworked || (stalledDays != null && stalledDays > 0) || coverageNeeded || (assigneeAway && !coverageNeeded)) && (
+            <View className="flex-row flex-wrap gap-1.5 mt-1.5 ml-4">
+              {task.reworked && (
+                <View className="bg-amber-100 dark:bg-amber-950 rounded-full px-2 py-0.5">
+                  <Text className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">R{task.reworkCount || 1}</Text>
+                </View>
+              )}
+              {stalledDays != null && stalledDays > 0 && (
+                <View className="bg-amber-50 dark:bg-amber-950 rounded-full px-2 py-0.5">
+                  <Text className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Stalled {stalledDays}d</Text>
+                </View>
+              )}
+              {coverageNeeded && (
+                <View className="bg-orange-50 dark:bg-orange-950 rounded-full px-2 py-0.5">
+                  <Text className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">Coverage</Text>
+                </View>
+              )}
+              {assigneeAway && !coverageNeeded && (
+                <View className="bg-blue-50 dark:bg-blue-950 rounded-full px-2 py-0.5">
+                  <Text className="text-[10px] font-semibold text-blue-500 dark:text-blue-400">Away</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Quick actions for handoff */}
           {quickActions && !quickActions.engaged && (

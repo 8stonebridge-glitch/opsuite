@@ -337,7 +337,8 @@ function SettingRow({
       </Text>
       <Text
         className="text-sm text-gray-400 dark:text-gray-500 text-right"
-        style={{ maxWidth: '46%', flexShrink: 1, flexWrap: 'wrap' }}
+        style={{ maxWidth: '46%', flexShrink: 1 }}
+        numberOfLines={2}
       >
         {value}
       </Text>
@@ -367,7 +368,7 @@ function StepperRow({
   return (
     <View className={`flex-row items-center gap-3 py-3 ${last ? '' : 'border-b border-gray-100 dark:border-gray-800'}`}>
       <Ionicons name={icon as any} size={18} color={color} />
-      <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1">{label}</Text>
+      <Text className="text-sm text-gray-700 dark:text-gray-300 flex-1" numberOfLines={1} style={{ minWidth: 0 }}>{label}</Text>
       <View className="flex-row items-center gap-2">
         <Pressable
           onPress={onMinus}

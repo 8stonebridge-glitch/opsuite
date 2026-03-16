@@ -251,7 +251,7 @@ export default function SignUpScreen() {
                 {passwordMismatchMessage ? (
                   <View className="flex-row items-center gap-2 px-1 -mt-2">
                     <Ionicons name="alert-circle" size={16} color="#dc2626" />
-                    <Text className="text-sm text-red-600 flex-1">{passwordMismatchMessage}</Text>
+                    <Text className="text-sm text-red-600 dark:text-red-400 flex-1">{passwordMismatchMessage}</Text>
                   </View>
                 ) : null}
                 <Input
@@ -340,7 +340,7 @@ export default function SignUpScreen() {
               {error ? (
                 <View className="flex-row items-center gap-2 mb-4 px-1">
                   <Ionicons name="alert-circle" size={16} color="#dc2626" />
-                  <Text className="text-sm text-red-600 flex-1">{error}</Text>
+                  <Text className="text-sm text-red-600 dark:text-red-400 flex-1">{error}</Text>
                 </View>
               ) : null}
 

@@ -24,13 +24,13 @@ export function RoleSwitcher() {
   if (!state.isDemo) {
     return (
       <View className="bg-white dark:bg-gray-950 px-5 pt-5 pb-4 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-3 flex-1 mr-3" style={{ minWidth: 0 }}>
           <Avatar name={state.onboarding.orgName || 'O'} color={color} />
-          <View>
-            <Text className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          <View className="flex-1" style={{ minWidth: 0 }}>
+            <Text className="text-base font-semibold text-gray-900 dark:text-gray-100" numberOfLines={1}>
               {state.onboarding.orgName || 'My Organization'}
             </Text>
-            <Text className="text-xs text-gray-400 dark:text-gray-500">
+            <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={1}>
               {roleLabel}
               {state.onboarding.industry ? ` · ${state.onboarding.industry.name}` : ''}
             </Text>
@@ -67,13 +67,13 @@ export function RoleSwitcher() {
 
   return (
     <View className="bg-white dark:bg-gray-950 px-5 pt-5 pb-4 flex-row items-center justify-between">
-      <View className="flex-row items-center gap-3 flex-1 mr-3">
+      <View className="flex-row items-center gap-3 flex-1 mr-3" style={{ minWidth: 0 }}>
         <Avatar name={name} color={color} />
-        <View className="flex-1">
-          <Text className="text-base font-semibold text-gray-900 dark:text-gray-100">
+        <View className="flex-1" style={{ minWidth: 0 }}>
+          <Text className="text-base font-semibold text-gray-900 dark:text-gray-100" numberOfLines={1}>
             {state.role === 'admin' ? state.onboarding.orgName : name}
           </Text>
-          <Text className="text-xs text-gray-400 dark:text-gray-500">
+          <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={1}>
             {roleLabel}
             {state.onboarding.industry ? ` · ${state.onboarding.industry.name}` : ''}
           </Text>
